@@ -1,0 +1,29 @@
+{
+  "name": "studyos-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev:frontend": "vite --open",
+    "dev:backend": "npm run dev --prefix ../backend",
+    "dev": "concurrently -k -p \"[{name}]\" -n \"Frontend,Backend\" -c \"cyan.bold,magenta.bold\" \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "build": "vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "firebase": "^13.0.0",
+    "lucide-react": "^1.52.0",
+    "puppeteer": "^25.13.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.6",
+    "oxlint": "^1.81.0",
+    "vite": "^8.3.0"
+  }
+}

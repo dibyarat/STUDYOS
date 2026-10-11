@@ -1,0 +1,92 @@
+export const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/v1/studyos').replace(/\/$/, '');
+
+export class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+export async function apiRequest(path, options = {}) {
+  const { method = 'GET', body, token, headers = {}, signal } = options;
+  const startedAt = performance.now();
+  const requestUrl = new URL(path, `${API_URL}/`);
+  let status = 'ERR';
+
+  const finalHeaders = { ...headers };
+  if (!(body instanceof FormData)) {
+    finalHeaders['Content-Type'] = finalHeaders['Content-Type'] || 'application/json';
+  }
+
+  if (token) {
+    finalHeaders.Authorization = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      method,
+      headers: finalHeaders,
+      body: body !== undefined ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
+      signal,
+    });
+    status = String(response.status);
+
+    if (!response.ok) {
+      const responseBody = await response.text();
+      let payload = null;
+      try {
+        payload = JSON.parse(responseBody);
+      } catch {
+        payload = { message: responseBody };
+      }
+      const error = new ApiError(payload?.error || payload?.message || `Request failed with status ${response.status}`, response.status);
+      if (response.status === 401 && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('studyos:session-expired'));
+      }
+      throw error;
+    }
+
+    if (response.status === 204) return null;
+
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      return await response.json();
+    }
+
+    return await response.text();
+  } finally {
+    if (import.meta.env.DEV) {
+      console.debug(`[api] ${method} ${requestUrl.pathname} ${status} ${Math.round(performance.now() - startedAt)}ms`);
+    }
+  }
+}
+
+export function apiUpload(path, { method = 'POST', body, token, onProgress } = {}) {
+    if (!(body instanceof FormData)) throw new TypeError('File uploads require FormData');
+    return new Promise((resolve, reject) => {
+      const request = new XMLHttpRequest();
+      request.open(method, `${API_URL}${path}`);
+      if (token) request.setRequestHeader('Authorization', `Bearer ${token}`);
+      request.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
+      });
+      request.addEventListener('load', () => {
+        let payload;
+        try {
+          payload = request.responseText ? JSON.parse(request.responseText) : null;
+        } catch {
+          reject(new Error('The server returned an invalid upload response'));
+          return;
+        }
+        if (request.status >= 200 && request.status < 300) {
+          resolve(payload);
+          return;
+        }
+        reject(new Error(payload?.error || payload?.message || `Upload failed with status ${request.status}`));
+      });
+      request.addEventListener('error', () => reject(new Error('The upload could not reach the server')));
+      request.addEventListener('abort', () => reject(new Error('The upload was cancelled')));
+      request.send(body);
+    });
+}
