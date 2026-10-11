@@ -418,5 +418,13 @@ function shutdown(signal: NodeJS.Signals) {
   });
 }
 
+process.on('unhandledRejection', (reason) => {
+  console.warn('[unhandledRejection]', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[uncaughtException]', error);
+});
+
 process.once('SIGINT', () => shutdown('SIGINT'));
 process.once('SIGTERM', () => shutdown('SIGTERM'));

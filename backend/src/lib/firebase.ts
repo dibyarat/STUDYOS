@@ -34,6 +34,12 @@ export function getFirebaseApp(): App {
       credential: cert(credentials),
       storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
     });
+  } else if (fs.existsSync('/etc/secrets/serviceAccountKey.json')) {
+    const credentials = JSON.parse(fs.readFileSync('/etc/secrets/serviceAccountKey.json', 'utf8'));
+    firebaseApp = initializeApp({
+      credential: cert(credentials),
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    });
   } else {
     const projectId = process.env.FIREBASE_PROJECT_ID || 'campassist-1ffac';
     firebaseApp = initializeApp({
