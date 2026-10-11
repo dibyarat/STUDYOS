@@ -1,20 +1,18 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "StudyOS Backend API",
+  "main": "dist/index.js",
   "scripts": {
-    "build": "prisma generate && tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "start:migrate": "prisma migrate deploy && node dist/index.js",
-    "migrate": "prisma migrate deploy",
     "dev": "node --watch dist/index.js",
     "test": "echo \"No backend tests configured\""
   },
   "keywords": [],
   "type": "commonjs",
   "dependencies": {
-    "@prisma/client": "6.19.3",
+    "@js-sdsl/ordered-map": "^4.4.2",
     "@types/multer": "^2.3.0",
     "cloudinary": "^2.11.0",
     "cors": "^2.8.6",
@@ -27,7 +25,6 @@
     "@types/cors": "^2.8.6",
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",
-    "prisma": "6.19.3",
     "typescript": "^5.9.2"
   }
 }

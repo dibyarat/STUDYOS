@@ -1,7 +1,6 @@
-import { Prisma } from '@prisma/client';
 import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
-import { prisma } from '../lib/prisma';
+import { Prisma, prisma } from '../lib/prisma';
 
 const router = Router();
 const messageInclude = { sender: { select: { id: true, name: true, avatarUrl: true } } };
@@ -55,7 +54,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
       take: 100,
     });
 
-    const accessible = [];
+    const accessible: any[] = [];
     for (const conversation of conversations) {
       const access = await authorizeConversation(conversation.id, req.user!.id);
       if (!access) continue;

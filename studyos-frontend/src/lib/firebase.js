@@ -64,3 +64,4 @@ export const authClient = {
 };
 
 export const supabase = authClient;
+

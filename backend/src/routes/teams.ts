@@ -1,7 +1,6 @@
-import { Prisma } from '@prisma/client';
 import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
-import { prisma } from '../lib/prisma';
+import { Prisma, prisma } from '../lib/prisma';
 
 const router = Router();
 const TEAM_TYPES = new Set(['HACKATHON', 'GROUP_PROJECT', 'PPT_PRESENTATION', 'RESEARCH', 'COLLEGE_PROJECT', 'COMPETITION', 'OTHER']);
@@ -125,7 +124,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
       ...team,
       deadline: effectiveDeadline(team),
       isExpired: effectiveDeadline(team).getTime() <= Date.now(),
-      acceptedRoleCounts: team.memberships.reduce<Record<string, number>>((counts, membership) => {
+      acceptedRoleCounts: ((team.memberships as any[]) || []).reduce((counts: Record<string, number>, membership: any) => {
         if (membership.position) counts[membership.position] = (counts[membership.position] || 0) + 1;
         return counts;
       }, {}),
@@ -165,7 +164,7 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
       include: { ...teamInclude, requests: { where: { OR: [{ userId: req.user!.id }, { status: 'ACCEPTED' }] }, select: { id: true, status: true, roleAppliedFor: true, userId: true } } },
     });
     if (!teamPost) return res.status(404).json({ error: 'Team post not found' });
-    const acceptedRoleCounts = teamPost.memberships.reduce<Record<string, number>>((counts, membership) => {
+    const acceptedRoleCounts = ((teamPost.memberships as any[]) || []).reduce((counts: Record<string, number>, membership: any) => {
       if (membership.position) counts[membership.position] = (counts[membership.position] || 0) + 1;
       return counts;
     }, {});

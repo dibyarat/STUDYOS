@@ -1,10 +1,9 @@
 import { Router } from 'express';
-import { Prisma } from '@prisma/client';
 import multer from 'multer';
 import type { NextFunction, Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
-import { prisma } from '../lib/prisma';
+import { Prisma, prisma } from '../lib/prisma';
 import { InvalidResourceFileError, uploadResourceFile } from '../lib/storage';
 import { deleteFromCloudinary } from '../lib/cloudinary';
 

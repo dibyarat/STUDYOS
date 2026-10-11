@@ -1,29 +1,25 @@
 # StudyOS
 
-StudyOS is a collaborative academic workspace featuring a React + Vite frontend with an Express, Prisma, and PostgreSQL backend.
+StudyOS is a collaborative academic workspace featuring a React + Vite frontend and an Express + TypeScript backend powered entirely by **Firebase (Auth & Cloud Firestore)** and **Cloudinary**.
 
 ---
 
 ## Architecture Overview
 
 - **Frontend (`/studyos-frontend`)**: React, Vite, Lucide Icons, Firebase Web SDK (Auth).
-- **Backend (`/backend`)**: Node.js, Express, TypeScript, Prisma ORM, PostgreSQL, Firebase Admin SDK, Cloudinary.
+- **Backend (`/backend`)**: Node.js, Express, TypeScript, Firebase Admin SDK (Auth & Cloud Firestore), Cloudinary.
+- **Database**: Firebase Cloud Firestore (No external SQL or PostgreSQL required).
 
 ---
 
 ## Local Development
 
 1. **Backend setup**:
-   - Copy `backend/.env.template` to `backend/.env` and fill in your PostgreSQL URL, Firebase Admin credentials, and Cloudinary settings.
+   - Copy `backend/.env.template` to `backend/.env` and fill in your Firebase Admin credentials (`FIREBASE_PROJECT_ID`, `FIREBASE_SERVICE_ACCOUNT_JSON` or `FIREBASE_SERVICE_ACCOUNT_PATH`) and Cloudinary settings.
    - Install dependencies:
      ```bash
      cd backend
      npm install
-     ```
-   - Run Prisma migrations and generate client:
-     ```bash
-     npx prisma migrate deploy
-     npx prisma generate
      ```
    - Start the backend server:
      ```bash
@@ -49,9 +45,9 @@ StudyOS is a collaborative academic workspace featuring a React + Vite frontend 
 ### Option 1: Render Blueprint (Automatic via `render.yaml`)
 
 1. Go to the [Render Dashboard](https://dashboard.render.com/) and click **New > Blueprint**.
-2. Connect your GitHub repository (`STUDYOS`).
-3. Render reads `render.yaml` automatically and creates the `studyos-backend` web service.
-4. Fill in the required environment variables in the Render dashboard and deploy!
+2. Connect your GitHub repository (`dibyarat/STUDYOS`).
+3. Render reads `render.yaml` automatically and configures the `studyos-backend` service.
+4. Fill in your environment variables in the Render dashboard and deploy!
 
 ### Option 2: Manual Web Service Setup on Render
 
@@ -61,22 +57,20 @@ StudyOS is a collaborative academic workspace featuring a React + Vite frontend 
    - **Root Directory**: `backend`
    - **Environment / Runtime**: `Node`
    - **Build Command**: `npm install && npm run build`
-   - **Start Command**: `npm run start:migrate` *(runs Prisma migrations before starting)*
-   - **Health Check Path**: `/health`
+   - **Start Command**: `npm start`
+   - **Health Check Path** *(under Advanced)*: `/health`
 3. Add Environment Variables:
    - `NODE_ENV`: `production`
-   - `DATABASE_URL`: PostgreSQL connection string (pooled or transaction pooler)
-   - `DIRECT_URL`: PostgreSQL direct connection string (required by Prisma for migrations)
-   - `FRONTEND_URL`: Production URL of your deployed frontend (e.g. `https://studyos.vercel.app`)
+   - `FRONTEND_URL`: URL of your deployed frontend (e.g. `https://studyos.vercel.app`)
    - `CORS_ORIGINS`: Optional comma-separated origins (e.g. preview deployment URLs)
-   - `FIREBASE_PROJECT_ID`: Your Firebase project ID
-   - `FIREBASE_STORAGE_BUCKET`: Your Firebase storage bucket
-   - `FIREBASE_SERVICE_ACCOUNT_JSON`: Full JSON contents of your Firebase service account key
+   - `FIREBASE_PROJECT_ID`: Your Firebase project ID (e.g. `campassist-1ffac`)
+   - `FIREBASE_STORAGE_BUCKET`: Your Firebase storage bucket (e.g. `campassist-1ffac.firebasestorage.app`)
+   - `FIREBASE_SERVICE_ACCOUNT_JSON`: Full JSON string of your Firebase service account key
    - `CLOUDINARY_CLOUD_NAME`: Cloudinary cloud name
    - `CLOUDINARY_API_KEY`: Cloudinary API key
    - `CLOUDINARY_API_SECRET`: Cloudinary API secret
 
-> **Note**: Render provides `PORT` automatically. Never commit `.env` files or service account JSON files to GitHub.
+> **Note**: No PostgreSQL database, SQL connections, or migrations are required. Render provides `PORT` automatically.
 
 ---
 
@@ -96,5 +90,4 @@ StudyOS is a collaborative academic workspace featuring a React + Vite frontend 
    - `VITE_CAMPUSMATE_URL`
    - `VITE_API_URL`: Your Render backend base URL ending in `/api/v1/studyos` (e.g. `https://studyos-backend.onrender.com/api/v1/studyos`)
 5. After deploying both:
-   - Copy your Vercel deployment URL and set it as `FRONTEND_URL` on Render.
-   - Trigger a redeploy on Render if needed so CORS allows requests from your Vercel domain.
+   - Set `FRONTEND_URL` on Render to your Vercel URL so CORS allows requests.
