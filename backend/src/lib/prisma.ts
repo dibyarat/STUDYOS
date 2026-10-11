@@ -47,8 +47,7 @@ async function syncCollection(name: string): Promise<Map<string, Record<string, 
     }
     initializedCollections.add(name);
   } catch (error) {
-    // If Firebase Firestore isn't connected or offline, continue with in-memory map
-    console.warn(`[firestore] Collection sync skipped for ${name}:`, (error as Error).message);
+    console.error(`[CRITICAL FIRESTORE WARNING] Collection sync failed for ${name}:`, (error as Error).message);
     initializedCollections.add(name);
   }
   return map;
@@ -67,7 +66,7 @@ async function persistDoc(name: string, id: string, data: Record<string, any>): 
     }
     await db.collection(name).doc(id).set(sanitized, { merge: true });
   } catch (error) {
-    console.warn(`[firestore] Failed to persist doc ${id} in ${name}:`, (error as Error).message);
+    console.error(`[CRITICAL FIRESTORE ERROR] Failed to persist doc ${id} in ${name}:`, (error as Error).message);
   }
 }
 

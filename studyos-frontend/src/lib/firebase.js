@@ -24,8 +24,6 @@ export const isFirebaseConfigured = Boolean(
   firebaseConfig.projectId
 );
 
-export const isSupabaseConfigured = isFirebaseConfigured;
-
 export const app = isFirebaseConfigured
   ? (!getApps().length ? initializeApp(firebaseConfig) : getApp())
   : null;
@@ -112,6 +110,4 @@ export const authClient = {
     signOut: () => (firebaseAuth ? firebaseSignOut(firebaseAuth) : Promise.resolve())
   }
 };
-
-export const supabase = authClient;
 
