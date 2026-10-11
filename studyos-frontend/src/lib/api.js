@@ -1,5 +1,9 @@
 export function getApiBaseUrl() {
-  const envUrl = (import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/v1/studyos').trim();
+  const envUrl = (
+    import.meta.env.VITE_API_URL ||
+    import.meta.env.VITE_BACKEND_URL ||
+    'https://studyos-backend-t1qz.onrender.com/api/v1/studyos'
+  ).trim();
   let base = envUrl.replace(/\/+$/, '');
   if (!base.endsWith('/api/v1/studyos')) {
     base = `${base}/api/v1/studyos`;
