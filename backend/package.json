@@ -6,6 +6,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
+    "start:migrate": "node dist/index.js",
+    "migrate": "echo \"No migrations needed with Firestore\"",
     "dev": "node --watch dist/index.js",
     "test": "echo \"No backend tests configured\""
   },
