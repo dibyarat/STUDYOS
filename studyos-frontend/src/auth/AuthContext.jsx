@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { isSupabaseConfigured, supabase } from '../lib/supabase.js'
+import { isFirebaseConfigured, authClient } from '../lib/firebase.js'
 import { AuthContext } from './auth-context.js'
 
 const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/v1/studyos').replace(/\/$/, '');
@@ -7,7 +7,7 @@ const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_UR
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(isSupabaseConfigured)
+  const [loading, setLoading] = useState(isFirebaseConfigured)
   const authRequestId = useRef(0)
 
   const syncUserAndLoadProfile = useCallback(async (sessionUser, requestId) => {
@@ -67,13 +67,13 @@ export function AuthProvider({ children }) {
   }, [session]);
 
   useEffect(() => {
-    if (!supabase) return undefined
+    if (!authClient) return undefined
 
     let active = true
     let hasReceivedAuthEvent = false
     let lastAccessToken = null
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: subscription } = authClient.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return
       const accessToken = nextSession?.access_token || null
       if (hasReceivedAuthEvent && accessToken === lastAccessToken) return
@@ -101,8 +101,8 @@ export function AuthProvider({ children }) {
     }
   }, [syncUserAndLoadProfile])
 
-  const signIn = (email, password) => supabase.auth.signInWithPassword({ email, password })
-  const signOut = () => supabase.auth.signOut()
+  const signIn = (email, password) => authClient.auth.signInWithPassword({ email, password })
+  const signOut = () => authClient.auth.signOut()
 
-  return <AuthContext.Provider value={{ session, user: session?.user || null, profile, loading, configured: isSupabaseConfigured, signIn, signOut, reloadProfile }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ session, user: session?.user || null, profile, loading, configured: isFirebaseConfigured, signIn, signOut, reloadProfile }}>{children}</AuthContext.Provider>
 }

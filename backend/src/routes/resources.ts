@@ -41,18 +41,6 @@ function normalizeTags(rawTags: unknown): string[] {
   return [];
 }
 
-function storageObjectPath(fileReference: string, bucketName: string): string | null {
-  if (!/^https?:\/\//i.test(fileReference)) {
-    return fileReference && !fileReference.split('/').includes('..') ? fileReference : null;
-  }
-  try {
-    const url = new URL(fileReference);
-    const prefix = `/storage/v1/object/public/${bucketName}/`;
-    return url.pathname.startsWith(prefix) ? decodeURIComponent(url.pathname.slice(prefix.length)) : null;
-  } catch {
-    return null;
-  }
-}
 
 router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {

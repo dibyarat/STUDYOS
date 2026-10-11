@@ -1,3 +1,9 @@
+databases:
+  - name: studyos-db
+    databaseName: studyos
+    user: studyos
+    plan: free
+
 services:
   - type: web
     name: studyos-backend
@@ -10,9 +16,13 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: studyos-db
+          property: connectionString
       - key: DIRECT_URL
-        sync: false
+        fromDatabase:
+          name: studyos-db
+          property: connectionString
       - key: FRONTEND_URL
         sync: false
       - key: CORS_ORIGINS
@@ -29,4 +39,3 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
-

@@ -11,19 +11,21 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || ''
 };
 
-export const isSupabaseConfigured = Boolean(
+export const isFirebaseConfigured = Boolean(
   firebaseConfig.apiKey &&
   firebaseConfig.projectId
 );
 
-const app = isSupabaseConfigured
+export const isSupabaseConfigured = isFirebaseConfigured;
+
+const app = isFirebaseConfigured
   ? (!getApps().length ? initializeApp(firebaseConfig) : getApp())
   : null;
 
 export const firebaseAuth = app ? getAuth(app) : null;
 
-// Mock supabase object to map auth methods
-export const supabase = {
+// Firebase auth client
+export const authClient = {
   auth: {
     onAuthStateChange: (callback) => {
       if (!firebaseAuth) {
@@ -60,3 +62,5 @@ export const supabase = {
     signOut: () => (firebaseAuth ? firebaseSignOut(firebaseAuth) : Promise.resolve())
   }
 };
+
+export const supabase = authClient;
