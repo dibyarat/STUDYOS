@@ -27,9 +27,33 @@ import { requireAuth } from './middleware/auth';
 const app = express();
 const PORT = Number(process.env.PORT || 3001);
 
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:5174',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000',
+  process.env.FRONTEND_URL,
+  ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map((s) => s.trim()) : []),
+].filter(Boolean) as string[];
+
+const isOriginAllowed = (origin?: string): boolean => {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  if (/^https:\/\/[a-z0-9-]+(\.vercel\.app|\.campassist\.me)$/i.test(origin)) return true;
+  if (process.env.NODE_ENV !== 'production') return true;
+  return false;
+};
+
 app.use(
   cors({
-    origin: true,
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
@@ -37,6 +61,15 @@ app.use(
     maxAge: 86400,
   }),
 );
+
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
+
 app.use(express.json({ limit: '10mb' }));
 
 if (process.env.NODE_ENV !== 'production') {
@@ -288,7 +321,27 @@ app.get('/api/v1/studyos/public-profile/:userId', requireAuth, async (req, res) 
       },
     });
     if (!user) return res.status(404).json({ error: 'Public profile not found' });
-    res.json({ user: { ...user, skills: user.skills.map(({ skill, proficiency, experience, portfolioUrl }) => ({ ...skill, proficiency, experience, portfolioUrl })) } });
+    const isOwner = req.user?.id === userId;
+    const academicIdentity = user.academicIdentity
+      ? {
+          ...user.academicIdentity,
+          rollNumber: isOwner ? user.academicIdentity.rollNumber : undefined,
+          residency: isOwner ? user.academicIdentity.residency : undefined,
+        }
+      : null;
+
+    res.json({
+      user: {
+        ...user,
+        academicIdentity,
+        skills: user.skills.map(({ skill, proficiency, experience, portfolioUrl }) => ({
+          ...skill,
+          proficiency,
+          experience,
+          portfolioUrl,
+        })),
+      },
+    });
   } catch (error) {
     console.error('Public profile fetch failed:', error);
     res.status(500).json({ error: 'Server error' });

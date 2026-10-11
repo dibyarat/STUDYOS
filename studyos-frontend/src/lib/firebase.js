@@ -1,5 +1,13 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  sendEmailVerification,
+  updateProfile,
+  signOut as firebaseSignOut,
+} from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
@@ -18,7 +26,7 @@ export const isFirebaseConfigured = Boolean(
 
 export const isSupabaseConfigured = isFirebaseConfigured;
 
-const app = isFirebaseConfigured
+export const app = isFirebaseConfigured
   ? (!getApps().length ? initializeApp(firebaseConfig) : getApp())
   : null;
 
@@ -40,6 +48,7 @@ export const authClient = {
             user: {
               id: user.uid,
               email: user.email,
+              emailVerified: Boolean(user.emailVerified),
               user_metadata: { name: user.displayName, avatar_url: user.photoURL }
             }
           };
@@ -57,6 +66,47 @@ export const authClient = {
         return { data: result, error: null };
       } catch (error) {
         return { data: null, error };
+      }
+    },
+    signUpWithPassword: async ({ email, password, name }) => {
+      if (!firebaseAuth) {
+        return { data: null, error: new Error('Firebase Auth is not configured') };
+      }
+      try {
+        const result = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+        if (name && result.user) {
+          await updateProfile(result.user, { displayName: name });
+        }
+        try {
+          await sendEmailVerification(result.user);
+        } catch (verifErr) {
+          console.warn('Initial email verification request notice:', verifErr);
+        }
+        return { data: result, error: null };
+      } catch (error) {
+        return { data: null, error };
+      }
+    },
+    resetPasswordForEmail: async (email) => {
+      if (!firebaseAuth) {
+        return { error: new Error('Firebase Auth is not configured') };
+      }
+      try {
+        await sendPasswordResetEmail(firebaseAuth, email);
+        return { error: null };
+      } catch (error) {
+        return { error };
+      }
+    },
+    resendVerificationEmail: async () => {
+      if (!firebaseAuth || !firebaseAuth.currentUser) {
+        return { error: new Error('No user is currently signed in.') };
+      }
+      try {
+        await sendEmailVerification(firebaseAuth.currentUser);
+        return { error: null };
+      } catch (error) {
+        return { error };
       }
     },
     signOut: () => (firebaseAuth ? firebaseSignOut(firebaseAuth) : Promise.resolve())

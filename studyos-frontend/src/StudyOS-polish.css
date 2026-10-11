@@ -111,6 +111,30 @@ select {
   font-weight: 700;
 }
 
+.email-verification-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  border: 1px solid #fef08a;
+  background: #fefce8;
+  color: #854d0e;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.email-verification-banner .button {
+  padding: 5px 12px;
+  font-size: 12px;
+  border-color: #facc15;
+  color: #713f12;
+  background: #ffffff;
+}
+
 .dashboard-empty {
   display: flex;
   min-height: 92px;

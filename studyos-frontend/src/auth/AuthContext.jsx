@@ -101,7 +101,28 @@ export function AuthProvider({ children }) {
   }, [syncUserAndLoadProfile])
 
   const signIn = (email, password) => authClient.auth.signInWithPassword({ email, password })
+  const signUp = (email, password, name) => authClient.auth.signUpWithPassword({ email, password, name })
+  const resetPassword = (email) => authClient.auth.resetPasswordForEmail(email)
+  const resendVerification = () => authClient.auth.resendVerificationEmail()
   const signOut = () => authClient.auth.signOut()
 
-  return <AuthContext.Provider value={{ session, user: session?.user || null, profile, loading, configured: isFirebaseConfigured, signIn, signOut, reloadProfile }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider
+      value={{
+        session,
+        user: session?.user || null,
+        profile,
+        loading,
+        configured: isFirebaseConfigured,
+        signIn,
+        signUp,
+        resetPassword,
+        resendVerification,
+        signOut,
+        reloadProfile,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
 }

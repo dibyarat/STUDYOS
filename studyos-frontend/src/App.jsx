@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useAuth } from './auth/useAuth.js'
 import { apiRequest, apiUpload } from './lib/api.js'
 import { discussionApi } from './lib/discussions.js'
+import { trackPageView, trackEvent } from './lib/analytics.js'
 import {
   ArrowRight,
   Bell,
@@ -105,10 +106,19 @@ const normalizeProject = (project) => ({
 })
 
 function App() {
-  const { user, profile, session, signOut } = useAuth()
+  const { user, profile, session, signOut, resendVerification } = useAuth()
   const [activePage, setActivePage] = useState('dashboard')
+
+  useEffect(() => {
+    if (activePage) {
+      trackPageView(activePage)
+    }
+  }, [activePage])
+
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [resendingVerification, setResendingVerification] = useState(false)
+  const [verificationCooldown, setVerificationCooldown] = useState(0)
   const [search, setSearch] = useState('')
   const [vaultSearch, setVaultSearch] = useState('')
   const [searchResults, setSearchResults] = useState(null)
@@ -502,6 +512,33 @@ function App() {
       }
       console.error('Failed to open resource file:', error)
       setActionNotice(error.message || 'This file is unavailable or you do not have access.')
+    }
+  }
+
+  const handleResendVerification = async () => {
+    if (resendingVerification || verificationCooldown > 0) return
+    setResendingVerification(true)
+    try {
+      const { error } = await resendVerification()
+      if (error) {
+        setActionNotice(error.message || 'Unable to send verification email. Please try again later.')
+      } else {
+        setActionNotice('Verification email sent! Please check your inbox.')
+        setVerificationCooldown(60)
+        const interval = setInterval(() => {
+          setVerificationCooldown((prev) => {
+            if (prev <= 1) {
+              clearInterval(interval)
+              return 0
+            }
+            return prev - 1
+          })
+        }, 1000)
+      }
+    } catch (err) {
+      setActionNotice(err instanceof Error ? err.message : 'Failed to send verification email.')
+    } finally {
+      setResendingVerification(false)
     }
   }
 
@@ -1699,6 +1736,19 @@ function App() {
           </div>
         </header>
         <div className="page-body">
+          {user && user.emailVerified === false && (
+            <div className="email-verification-banner" role="status">
+              <span>Your email address is unverified. Verify your email to ensure account recovery and security.</span>
+              <button
+                type="button"
+                className="button ghost"
+                disabled={resendingVerification || verificationCooldown > 0}
+                onClick={handleResendVerification}
+              >
+                {verificationCooldown > 0 ? `Resend in ${verificationCooldown}s` : resendingVerification ? 'Sending…' : 'Resend verification email'}
+              </button>
+            </div>
+          )}
           {initialLoading && <div className="data-load-loading" role="status">Loading your StudyOS workspace…</div>}
           {notificationsError && <div className={`data-load-warning ${sessionExpired ? 'session-expired' : ''}`} role="alert">{notificationsError}{sessionExpired ? <button className="button secondary" onClick={signOut}>Sign out</button> : <button className="button ghost" disabled={retryingSection === 'notifications'} onClick={() => { setRetryingSection('notifications'); refreshNotifications().finally(() => setRetryingSection('')) }}>{retryingSection === 'notifications' ? 'Retrying…' : 'Retry notifications'}</button>}</div>}
           {dataLoadError && ['teams', 'skills', 'projects'].includes(activePage) && <div className="data-load-warning" role="alert">{dataLoadError} <button className="button ghost" disabled={retryingSection === activePage} onClick={() => retryLoad(activePage)}>{retryingSection === activePage ? 'Retrying…' : 'Retry'}</button></div>}

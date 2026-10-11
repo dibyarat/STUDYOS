@@ -4,14 +4,18 @@ import {
   BookOpen,
   CheckCircle2,
   ExternalLink,
+  Eye,
+  EyeOff,
   FolderKanban,
   GraduationCap,
   Library,
   LockKeyhole,
+  Mail,
   MessageSquare,
   Search,
   Sparkles,
   Star,
+  User,
   UsersRound,
   X,
 } from 'lucide-react'
@@ -21,31 +25,113 @@ import campassistIcon from '../assets/campassist-icon.png'
 import './LandingPage.css'
 
 export default function LandingPage({ initialShowLogin = false }) {
-  const { signIn } = useAuth()
+  const { signIn, signUp, resetPassword } = useAuth()
   const [showLoginModal, setShowLoginModal] = useState(initialShowLogin)
+  const [authMode, setAuthMode] = useState('signin') // 'signin' | 'signup' | 'forgot'
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
+  const [statusMessage, setStatusMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const handleLoginSubmit = async (event) => {
+  const mapAuthError = (err) => {
+    const code = err?.code || ''
+    const message = err?.message || ''
+    if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+      return 'Incorrect email or password. Please verify your credentials or reset your password.'
+    }
+    if (code === 'auth/email-already-in-use') {
+      return 'An account already exists with this email address. Please sign in instead.'
+    }
+    if (code === 'auth/weak-password') {
+      return 'Password must be at least 6 characters long.'
+    }
+    if (code === 'auth/invalid-email') {
+      return 'Please enter a valid email address.'
+    }
+    if (code === 'auth/too-many-requests') {
+      return 'Access temporarily blocked due to multiple failed attempts. Please try again shortly.'
+    }
+    return message || 'Authentication failed. Please check your details and try again.'
+  }
+
+  const handleAuthSubmit = async (event) => {
     event.preventDefault()
-    setSubmitting(true)
     setError('')
+    setStatusMessage('')
+
+    if (authMode === 'signup') {
+      if (!name.trim()) {
+        setError('Please enter your name.')
+        return
+      }
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters long.')
+        return
+      }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match. Please re-enter them.')
+        return
+      }
+      setSubmitting(true)
+      try {
+        const { error: signUpError } = await signUp(email.trim(), password, name.trim())
+        if (signUpError) {
+          setError(mapAuthError(signUpError))
+        } else {
+          setStatusMessage('Account created successfully! Welcome to StudyOS.')
+        }
+      } catch (err) {
+        setError(mapAuthError(err))
+      } finally {
+        setSubmitting(false)
+      }
+      return
+    }
+
+    if (authMode === 'forgot') {
+      if (!email.trim()) {
+        setError('Please enter your registered email address.')
+        return
+      }
+      setSubmitting(true)
+      try {
+        const { error: resetErr } = await resetPassword(email.trim())
+        if (resetErr) {
+          setError(mapAuthError(resetErr))
+        } else {
+          setStatusMessage(`Password reset link sent to ${email.trim()}! Please check your inbox.`)
+        }
+      } catch (err) {
+        setError(mapAuthError(err))
+      } finally {
+        setSubmitting(false)
+      }
+      return
+    }
+
+    // Sign in mode
+    setSubmitting(true)
     try {
-      const { error: signInError } = await signIn(email, password)
+      const { error: signInError } = await signIn(email.trim(), password)
       if (signInError) {
-        setError(signInError.message || 'Incorrect email or password.')
+        setError(mapAuthError(signInError))
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to sign in. Please try again.')
+      setError(mapAuthError(err))
     } finally {
       setSubmitting(false)
     }
   }
 
-  const openLogin = () => {
+  const openLogin = (mode = 'signin') => {
     setError('')
+    setStatusMessage('')
+    setAuthMode(mode)
     setShowLoginModal(true)
   }
 
@@ -53,6 +139,9 @@ export default function LandingPage({ initialShowLogin = false }) {
     if (!submitting) {
       setShowLoginModal(false)
       setError('')
+      setStatusMessage('')
+      setPassword('')
+      setConfirmPassword('')
     }
   }
 
@@ -310,7 +399,7 @@ export default function LandingPage({ initialShowLogin = false }) {
         </div>
       </footer>
 
-      {/* Sign In Modal */}
+      {/* Authentication Modal */}
       {showLoginModal && (
         <div className="landing-modal-backdrop" onClick={closeLogin}>
           <div className="landing-modal-card" onClick={(e) => e.stopPropagation()}>
@@ -320,11 +409,62 @@ export default function LandingPage({ initialShowLogin = false }) {
 
             <div className="landing-modal-header">
               <img src={studyosMark} alt="StudyOS Logo" className="landing-modal-logo" />
-              <h2>Welcome to StudyOS</h2>
-              <p>Sign in with your student credentials to continue</p>
+              <h2>{authMode === 'signup' ? 'Create Your Account' : authMode === 'forgot' ? 'Reset Your Password' : 'Welcome to StudyOS'}</h2>
+              <p>
+                {authMode === 'signup'
+                  ? 'Join classmates, track study classes, and share resources'
+                  : authMode === 'forgot'
+                  ? 'We will send a secure password recovery link to your email'
+                  : 'Sign in with your student credentials to continue'}
+              </p>
             </div>
 
-            <form onSubmit={handleLoginSubmit} className="landing-modal-form">
+            {authMode !== 'forgot' && (
+              <div className="auth-mode-tabs" role="tablist">
+                <button
+                  type="button"
+                  className={`auth-mode-tab ${authMode === 'signin' ? 'active' : ''}`}
+                  onClick={() => { setAuthMode('signin'); setError(''); setStatusMessage('') }}
+                  role="tab"
+                  aria-selected={authMode === 'signin'}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  className={`auth-mode-tab ${authMode === 'signup' ? 'active' : ''}`}
+                  onClick={() => { setAuthMode('signup'); setError(''); setStatusMessage('') }}
+                  role="tab"
+                  aria-selected={authMode === 'signup'}
+                >
+                  Create Account
+                </button>
+              </div>
+            )}
+
+            {statusMessage && (
+              <div className="landing-modal-success" role="status">
+                <CheckCircle2 size={18} />
+                <span>{statusMessage}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleAuthSubmit} className="landing-modal-form">
+              {authMode === 'signup' && (
+                <label>
+                  Full Name
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    autoComplete="name"
+                    placeholder="e.g. Alex Morgan"
+                    maxLength={100}
+                  />
+                </label>
+              )}
+
               <label>
                 Email Address
                 <input
@@ -337,25 +477,114 @@ export default function LandingPage({ initialShowLogin = false }) {
                 />
               </label>
 
-              <label>
-                Password
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                  placeholder="Enter your password"
-                />
-              </label>
+              {authMode !== 'forgot' && (
+                <label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Password</span>
+                    {authMode === 'signin' && (
+                      <button
+                        type="button"
+                        className="auth-switch-link"
+                        style={{ fontSize: '12px' }}
+                        onClick={() => { setAuthMode('forgot'); setError(''); setStatusMessage('') }}
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
+                  <div className="password-input-wrap">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
+                      placeholder={authMode === 'signup' ? 'Create a secure password' : 'Enter your password'}
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  {authMode === 'signup' && (
+                    <span className="auth-password-hints">Must be at least 6 characters</span>
+                  )}
+                </label>
+              )}
+
+              {authMode === 'signup' && (
+                <label>
+                  Confirm Password
+                  <div className="password-input-wrap">
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      autoComplete="new-password"
+                      placeholder="Repeat your password"
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowConfirmPassword((prev) => !prev)}
+                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </label>
+              )}
 
               {error && <p className="landing-modal-error" role="alert">{error}</p>}
 
               <button type="submit" className="landing-modal-submit" disabled={submitting}>
                 <LockKeyhole size={16} />
-                <span>{submitting ? 'Signing in…' : 'Sign in to StudyOS'}</span>
+                <span>
+                  {submitting
+                    ? authMode === 'signup' ? 'Creating account…' : authMode === 'forgot' ? 'Sending link…' : 'Signing in…'
+                    : authMode === 'signup' ? 'Create Account' : authMode === 'forgot' ? 'Send Password Reset Link' : 'Sign in to StudyOS'}
+                </span>
               </button>
             </form>
+
+            <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '13px' }}>
+              {authMode === 'forgot' ? (
+                <button
+                  type="button"
+                  className="auth-switch-link"
+                  onClick={() => { setAuthMode('signin'); setError(''); setStatusMessage('') }}
+                >
+                  ← Back to sign in
+                </button>
+              ) : authMode === 'signup' ? (
+                <p style={{ margin: 0, color: '#64748b' }}>
+                  Already have an account?{' '}
+                  <button
+                    type="button"
+                    className="auth-switch-link"
+                    onClick={() => { setAuthMode('signin'); setError(''); setStatusMessage('') }}
+                  >
+                    Sign in here
+                  </button>
+                </p>
+              ) : (
+                <p style={{ margin: 0, color: '#64748b' }}>
+                  Don’t have an account yet?{' '}
+                  <button
+                    type="button"
+                    className="auth-switch-link"
+                    onClick={() => { setAuthMode('signup'); setError(''); setStatusMessage('') }}
+                  >
+                    Create account
+                  </button>
+                </p>
+              )}
+            </div>
 
             <p className="landing-modal-footer">
               Secure authentication powered by Firebase Auth.
