@@ -106,6 +106,19 @@ function matchesWhere(item: Record<string, any>, where: any): boolean {
       continue;
     }
 
+    // Handle composite unique keys like userId_resourceId, userId_sectionId_isActive, etc.
+    if (
+      key.includes('_') &&
+      condition &&
+      typeof condition === 'object' &&
+      !Array.isArray(condition) &&
+      !(condition instanceof Date) &&
+      !('equals' in condition || 'in' in condition || 'not' in condition || 'contains' in condition || 'gt' in condition || 'gte' in condition || 'lt' in condition || 'lte' in condition || 'some' in condition || 'is' in condition || 'isNot' in condition)
+    ) {
+      if (!matchesWhere(item, condition)) return false;
+      continue;
+    }
+
     // Synonym handling for teamId and teamPostId
     let val = item[key];
     if (val === undefined) {
@@ -375,6 +388,70 @@ export class FirestoreCollection<T extends Record<string, any> = Record<string, 
     return items.length;
   }
 
+  async aggregate(args?: {
+    where?: any;
+    _avg?: Record<string, boolean>;
+    _count?: Record<string, boolean> | boolean;
+    _sum?: Record<string, boolean>;
+    _min?: Record<string, boolean>;
+    _max?: Record<string, boolean>;
+  }): Promise<any> {
+    const items = await this.findMany({ where: args?.where });
+    const count = items.length;
+    const result: any = {};
+
+    if (args?._count) {
+      if (typeof args._count === 'boolean') {
+        result._count = count;
+      } else {
+        const counts: Record<string, number> = {};
+        for (const field of Object.keys(args._count)) {
+          counts[field] = items.filter((x) => x[field] !== undefined && x[field] !== null).length;
+        }
+        result._count = counts;
+      }
+    }
+
+    if (args?._avg) {
+      const avgs: Record<string, number | null> = {};
+      for (const field of Object.keys(args._avg)) {
+        if (count === 0) {
+          avgs[field] = null;
+        } else {
+          const sum = items.reduce((acc, x) => acc + (Number(x[field]) || 0), 0);
+          avgs[field] = sum / count;
+        }
+      }
+      result._avg = avgs;
+    }
+
+    if (args?._sum) {
+      const sums: Record<string, number | null> = {};
+      for (const field of Object.keys(args._sum)) {
+        sums[field] = items.reduce((acc, x) => acc + (Number(x[field]) || 0), 0);
+      }
+      result._sum = sums;
+    }
+
+    if (args?._min) {
+      const mins: Record<string, any> = {};
+      for (const field of Object.keys(args._min)) {
+        mins[field] = items.reduce((min, x) => (min === null || x[field] < min ? x[field] : min), null);
+      }
+      result._min = mins;
+    }
+
+    if (args?._max) {
+      const maxs: Record<string, any> = {};
+      for (const field of Object.keys(args._max)) {
+        maxs[field] = items.reduce((max, x) => (max === null || x[field] > max ? x[field] : max), null);
+      }
+      result._max = maxs;
+    }
+
+    return result;
+  }
+
   async groupBy(args: { by: string[]; where?: any; _avg?: any; _count?: any }): Promise<any[]> {
     const items = await this.findMany({ where: args.where });
     const groups = new Map<string, any[]>();
@@ -551,6 +628,63 @@ export class FirestoreCollection<T extends Record<string, any> = Record<string, 
     if (include.topics) {
       const topics = await prisma.virtualStudyTopic.findMany({ where: { classId: item.id }, orderBy: { order: 'asc' } });
       resolved.topics = topics;
+    }
+
+    if (include.resource) {
+      const resourceId = item.resourceId;
+      if (resourceId) {
+        const resource = await prisma.resource.findUnique({ where: { id: resourceId } });
+        resolved.resource = resource ? applySelect(resource, include.resource.select) : null;
+      } else {
+        resolved.resource = null;
+      }
+    }
+
+    if (include.service) {
+      const serviceId = item.serviceId;
+      if (serviceId) {
+        const service = await prisma.helpService.findUnique({ where: { id: serviceId } });
+        resolved.service = service ? applySelect(service, include.service.select) : null;
+      } else {
+        resolved.service = null;
+      }
+    }
+
+    if (include.requester) {
+      const requesterId = item.requesterId || item.userId;
+      if (requesterId) {
+        const user = await prisma.user.findUnique({ where: { id: requesterId } });
+        resolved.requester = user ? applySelect(user, include.requester.select || include.requester) : null;
+      } else {
+        resolved.requester = null;
+      }
+    }
+
+    if (include.project) {
+      const projectId = item.projectId;
+      if (projectId) {
+        const project = await prisma.project.findUnique({ where: { id: projectId } });
+        resolved.project = project ? applySelect(project, include.project.select) : null;
+      } else {
+        resolved.project = null;
+      }
+    }
+
+    if (include.team) {
+      const teamId = item.teamId || item.teamPostId;
+      if (teamId) {
+        const team = await prisma.teamPost.findUnique({ where: { id: teamId } });
+        resolved.team = team ? applySelect(team, include.team.select) : null;
+      } else {
+        resolved.team = null;
+      }
+    }
+
+    if (include.requests) {
+      const requests = await prisma.teamJoinRequest.findMany({
+        where: { teamPostId: item.id, ...include.requests.where },
+      });
+      resolved.requests = requests.map((r: any) => applySelect(r, include.requests.select));
     }
 
     if (include._count) {

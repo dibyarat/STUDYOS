@@ -84,17 +84,16 @@ router.get('/:id/files/:fileId/access', requireAuth, async (req: AuthenticatedRe
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
     }
-    if (file.resource.visibility !== 'PUBLIC' && file.resource.creatorId !== req.user!.id) {
+    const resource = file.resource || await prisma.resource.findUnique({ where: { id } });
+    if (!resource) {
+      return res.status(404).json({ error: 'Resource not found' });
+    }
+    if (resource.visibility !== 'PUBLIC' && resource.creatorId !== req.user!.id) {
       return res.status(403).json({ error: 'This resource is private' });
     }
 
-    
-    
-
-    
-
     res.json({ url: file.fileUrl, expiresIn: 300 });
-      return;
+    return;
   } catch (error) {
     console.error('Failed to create resource file link:', error);
     res.status(500).json({ error: 'Server error' });
@@ -345,8 +344,8 @@ router.post('/:id/rate', requireAuth, async (req: AuthenticatedRequest, res) => 
     }
 
     const { rating, averageRating, ratingCount } = await prisma.$transaction(async (transaction) => {
-      const existingRating = await transaction.resourceRating.findUnique({
-        where: { userId_resourceId: { userId: req.user!.id, resourceId: id } },
+      const existingRating = await transaction.resourceRating.findFirst({
+        where: { userId: req.user!.id, resourceId: id },
         select: { id: true },
       });
       const rating = await transaction.resourceRating.upsert({
@@ -366,15 +365,34 @@ router.post('/:id/rate', requireAuth, async (req: AuthenticatedRequest, res) => 
           },
         });
       }
-      const aggregate = await transaction.resourceRating.aggregate({
-        where: { resourceId: id },
-        _avg: { rating: true },
-        _count: { rating: true },
-      });
+      let averageRating = ratingValue;
+      let ratingCount = 1;
+      try {
+        const aggregate = await transaction.resourceRating.aggregate({
+          where: { resourceId: id },
+          _avg: { rating: true },
+          _count: { rating: true },
+        });
+        if (aggregate && aggregate._avg && typeof aggregate._avg.rating === 'number') {
+          averageRating = Number((aggregate._avg.rating || 0).toFixed(2));
+          ratingCount = aggregate._count?.rating || 1;
+        } else {
+          const allRatings = await transaction.resourceRating.findMany({ where: { resourceId: id } });
+          ratingCount = allRatings.length;
+          const sum = allRatings.reduce((acc: number, r: any) => acc + (Number(r.rating) || 0), 0);
+          averageRating = ratingCount > 0 ? Number((sum / ratingCount).toFixed(2)) : ratingValue;
+        }
+      } catch (aggErr) {
+        console.warn('aggregate error in rating route, fallback to findMany:', aggErr);
+        const allRatings = await transaction.resourceRating.findMany({ where: { resourceId: id } });
+        ratingCount = allRatings.length;
+        const sum = allRatings.reduce((acc: number, r: any) => acc + (Number(r.rating) || 0), 0);
+        averageRating = ratingCount > 0 ? Number((sum / ratingCount).toFixed(2)) : ratingValue;
+      }
       return {
         rating,
-        averageRating: Number((aggregate._avg.rating || 0).toFixed(2)),
-        ratingCount: aggregate._count.rating,
+        averageRating,
+        ratingCount,
       };
     });
     res.json({ rating, averageRating, ratingCount });

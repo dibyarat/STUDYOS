@@ -480,16 +480,26 @@ function App() {
   }), [resources, vaultSearch])
 
   const openResourceFile = async (resourceId, fileId) => {
-    const fileWindow = window.open('about:blank', '_blank')
+    let fileWindow = null
+    try {
+      fileWindow = window.open('about:blank', '_blank')
+    } catch (_) {
+      // Popup blocked or not permitted
+    }
     try {
       const result = await apiRequest(`/resources/${resourceId}/files/${fileId}/access`, {
         token: session?.access_token,
       })
       if (!result?.url) throw new Error('The file service did not provide a download link.')
-      if (fileWindow) fileWindow.location.replace(result.url)
-      else window.location.assign(result.url)
+      if (fileWindow && !fileWindow.closed) {
+        fileWindow.location.href = result.url
+      } else {
+        window.open(result.url, '_blank')
+      }
     } catch (error) {
-      fileWindow?.close()
+      if (fileWindow && !fileWindow.closed) {
+        fileWindow.close()
+      }
       console.error('Failed to open resource file:', error)
       setActionNotice(error.message || 'This file is unavailable or you do not have access.')
     }
