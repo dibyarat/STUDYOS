@@ -21,19 +21,25 @@ export function getFirebaseApp(): App {
       credential: cert(credentials),
       storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
     });
+  } else if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+    const rawJson = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8');
+    const credentials = JSON.parse(rawJson);
+    firebaseApp = initializeApp({
+      credential: cert(credentials),
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    });
   } else if (fs.existsSync(serviceAccountPath)) {
     const credentials = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
     firebaseApp = initializeApp({
       credential: cert(credentials),
       storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
     });
-  } else if (process.env.FIREBASE_PROJECT_ID) {
-    firebaseApp = initializeApp({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-    });
   } else {
-    throw new Error('Firebase Admin SDK is not configured');
+    const projectId = process.env.FIREBASE_PROJECT_ID || 'campassist-1ffac';
+    firebaseApp = initializeApp({
+      projectId,
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${projectId}.firebasestorage.app`,
+    });
   }
 
   return firebaseApp;

@@ -26,39 +26,15 @@ import { requireAuth } from './middleware/auth';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3001);
-const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
-const configuredOrigins = (process.env.CORS_ORIGINS || '')
-  .split(',')
-  .map((origin) => origin.trim().replace(/\/+$/, ''))
-  .filter(Boolean);
-const allowedOrigins = new Set([
-  FRONTEND_URL,
-  ...configuredOrigins,
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'http://localhost:5174',
-  'http://127.0.0.1:5174',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-]);
 
 app.use(
   cors({
-    origin(origin, callback) {
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-
-      const normalizedOrigin = origin.replace(/\/+$/, '');
-      if (allowedOrigins.has(normalizedOrigin) || /^https?:\/\/(localhost|127\.0\.0\.1)(?::\d+)?$/.test(normalizedOrigin)) {
-        callback(null, true);
-        return;
-      }
-
-      callback(new Error('Origin not allowed by CORS'));
-    },
+    origin: true,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 86400,
   }),
 );
 app.use(express.json({ limit: '10mb' }));

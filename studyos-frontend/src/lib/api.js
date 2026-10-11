@@ -1,4 +1,18 @@
-export const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/v1/studyos').replace(/\/$/, '');
+export function getApiBaseUrl() {
+  const envUrl = (import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/v1/studyos').trim();
+  let base = envUrl.replace(/\/+$/, '');
+  if (!base.endsWith('/api/v1/studyos')) {
+    base = `${base}/api/v1/studyos`;
+  }
+  return base;
+}
+
+export const API_URL = getApiBaseUrl();
+
+export function resolveEndpoint(path) {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${API_URL}${cleanPath}`;
+}
 
 export class ApiError extends Error {
   constructor(message, status) {
@@ -11,7 +25,7 @@ export class ApiError extends Error {
 export async function apiRequest(path, options = {}) {
   const { method = 'GET', body, token, headers = {}, signal } = options;
   const startedAt = performance.now();
-  const requestUrl = new URL(path, `${API_URL}/`);
+  const fullUrl = resolveEndpoint(path);
   let status = 'ERR';
 
   const finalHeaders = { ...headers };
@@ -24,7 +38,7 @@ export async function apiRequest(path, options = {}) {
   }
 
   try {
-    const response = await fetch(`${API_URL}${path}`, {
+    const response = await fetch(fullUrl, {
       method,
       headers: finalHeaders,
       body: body !== undefined ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
@@ -57,16 +71,17 @@ export async function apiRequest(path, options = {}) {
     return await response.text();
   } finally {
     if (import.meta.env.DEV) {
-      console.debug(`[api] ${method} ${requestUrl.pathname} ${status} ${Math.round(performance.now() - startedAt)}ms`);
+      console.debug(`[api] ${method} ${fullUrl} ${status} ${Math.round(performance.now() - startedAt)}ms`);
     }
   }
 }
 
 export function apiUpload(path, { method = 'POST', body, token, onProgress } = {}) {
     if (!(body instanceof FormData)) throw new TypeError('File uploads require FormData');
+    const fullUrl = resolveEndpoint(path);
     return new Promise((resolve, reject) => {
       const request = new XMLHttpRequest();
-      request.open(method, `${API_URL}${path}`);
+      request.open(method, fullUrl);
       if (token) request.setRequestHeader('Authorization', `Bearer ${token}`);
       request.upload.addEventListener('progress', (event) => {
         if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));

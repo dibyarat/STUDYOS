@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { isFirebaseConfigured, authClient } from '../lib/firebase.js'
+import { API_URL } from '../lib/api.js'
 import { AuthContext } from './auth-context.js'
-
-const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/v1/studyos').replace(/\/$/, '');
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
