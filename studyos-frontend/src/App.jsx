@@ -287,7 +287,9 @@ function App() {
       .then((data) => {
         if (!active) return
         completed = true
-        setTeamPosts((data.teamPosts || []).map(normalizeTeamPost))
+        const loaded = (data.teamPosts || []).map(normalizeTeamPost)
+        setTeamPosts(loaded)
+        setTeamPostCount(loaded.length)
         setDataLoadError('')
       })
       .catch((error) => {
@@ -1663,7 +1665,16 @@ function App() {
     }
   }
 
-  const go = (key) => { setActivePage(key); setMobileOpen(false) }
+  const go = (key) => {
+    setActivePage(key)
+    setMobileOpen(false)
+    if (key === 'teams') {
+      setNotifications((current) => current.map((n) => n.relatedEntityType === 'TEAM' && !n.isRead ? { ...n, isRead: true } : n))
+      if (session?.access_token) {
+        apiRequest('/notifications/read-all', { method: 'PATCH', token: session.access_token }).catch(() => {})
+      }
+    }
+  }
 
   const openSearchGroup = (group, item) => {
     const destination = { resources: 'vault', classes: 'classes', projects: 'projects', labs: 'projects', teamPosts: 'teams', helpServices: 'skills', people: 'profile' }[group]
@@ -1684,7 +1695,7 @@ function App() {
         <div className="brand"><span className="studyos-logo-mark"><img src={studyosMark} alt="" /></span><strong>Study<span>OS</span></strong><small>CSE</small></div>
         <div className="nav-label">OVERVIEW</div>
         <nav>{navItems.map(({ label, icon: Icon, key }) => {
-          const badgeCount = key === 'teams' ? teamUnreadCount : 0
+          const badgeCount = key === 'teams' ? (teamPosts.length > 0 ? teamPosts.length : (teamPostCount > 0 ? teamPostCount : 0)) : 0
           return (
             <button key={key} className={`nav-item ${activePage === key ? 'active' : ''}`} onClick={() => go(key)}>
               <Icon size={18} />
