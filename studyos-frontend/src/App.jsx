@@ -176,6 +176,10 @@ function App() {
   const [reportDialog, setReportDialog] = useState(null)
   const [reportSaving, setReportSaving] = useState(false)
   const [reportError, setReportError] = useState('')
+  const [rateDialog, setRateDialog] = useState(null)
+  const [rateSaving, setRateSaving] = useState(false)
+  const [rateError, setRateError] = useState('')
+  const [detailResource, setDetailResource] = useState(null)
   const [actionNotice, setActionNotice] = useState('')
   const [initialLoading, setInitialLoading] = useState(true)
   const [editingJob, setEditingJob] = useState(null)
@@ -657,12 +661,31 @@ function App() {
     if (!publishDialog || publishing) return
 
     const form = new FormData(event.currentTarget)
+    const selectionMode = String(form.get('selectionMode') || 'CLASS')
+    const topicIds = form.getAll('topicIds').map(String).filter(Boolean)
+    const resourceIds = form.getAll('resourceIds').map(String).filter(Boolean)
+
+    if (selectionMode === 'TOPICS' && topicIds.length === 0) {
+      setPublishError('Please select at least one topic to publish.')
+      return
+    }
+    if (selectionMode === 'RESOURCES' && resourceIds.length === 0) {
+      setPublishError('Please select at least one study material to publish.')
+      return
+    }
+
+    const title = String(form.get('title') || '').trim()
+    if (!title) {
+      setPublishError('Title is required.')
+      return
+    }
+
     const access = String(form.get('access') || 'FREE')
     const payload = {
-      selectionMode: String(form.get('selectionMode') || 'CLASS'),
-      topicIds: form.getAll('topicIds').map(String),
-      resourceIds: form.getAll('resourceIds').map(String),
-      title: String(form.get('title') || '').trim(),
+      selectionMode,
+      topicIds,
+      resourceIds,
+      title,
       description: String(form.get('description') || '').trim(),
       subject: String(form.get('subject') || '').trim(),
       topic: String(form.get('topic') || '').trim(),
@@ -687,6 +710,7 @@ function App() {
       })
       setResources((current) => [normalizeResource(data.resource), ...current.filter((item) => item.id !== data.resource.id)])
       setPublishDialog(null)
+      setActionNotice('Study material published to Study Notes Vault!')
     } catch (error) {
       console.error('Failed to publish class material:', error)
       setPublishError(error.message || 'Unable to publish this study material.')
@@ -1045,9 +1069,46 @@ function App() {
       });
 
       setResources((current) => current.map((item) => item.id === id ? { ...item, savedByUser: !isSaved, saveCount: Math.max(0, (item.saveCount || 0) + (isSaved ? -1 : 1)) } : item));
+      if (detailResource?.id === id) {
+        setDetailResource((current) => current ? { ...current, savedByUser: !isSaved, saveCount: Math.max(0, (current.saveCount || 0) + (isSaved ? -1 : 1)) } : null);
+      }
+      setActionNotice(isSaved ? 'Resource removed from saved bookmarks.' : 'Resource saved to your bookmarks.');
     } catch (e) {
       console.error('Failed to save resource:', e);
+      setActionNotice(e.message || 'Unable to update bookmark status.');
       throw e
+    }
+  }
+
+  const submitResourceRating = async (id, rating) => {
+    if (!user || !session?.access_token) return
+    setRateSaving(true)
+    setRateError('')
+    try {
+      const data = await apiRequest(`/resources/${id}/rate`, {
+        method: 'POST',
+        body: { rating },
+        token: session.access_token,
+      })
+      setResources((current) => current.map((item) => item.id === id ? {
+        ...item,
+        averageRating: data.averageRating ?? rating,
+        ratingCount: data.ratingCount ?? ((item.ratingCount || 0) + 1),
+      } : item))
+      if (detailResource?.id === id) {
+        setDetailResource((current) => current ? {
+          ...current,
+          averageRating: data.averageRating ?? rating,
+          ratingCount: data.ratingCount ?? ((current.ratingCount || 0) + 1),
+        } : null)
+      }
+      setRateDialog(null)
+      setActionNotice('Thank you! Your rating has been recorded.')
+    } catch (error) {
+      console.error('Failed to rate resource:', error)
+      setRateError(error.message || 'Unable to submit rating.')
+    } finally {
+      setRateSaving(false)
     }
   }
 
@@ -1212,7 +1273,7 @@ function App() {
       go('messages')
     } catch (error) {
       console.error('Failed to open conversation:', error)
-      window.alert(error.message || 'You do not have access to this conversation.')
+      setActionNotice(error.message || 'You do not have access to this conversation context.')
     }
   }
 
@@ -1632,7 +1693,7 @@ function App() {
           {notificationsError && <div className={`data-load-warning ${sessionExpired ? 'session-expired' : ''}`} role="alert">{notificationsError}{sessionExpired ? <button className="button secondary" onClick={signOut}>Sign out</button> : <button className="button ghost" disabled={retryingSection === 'notifications'} onClick={() => { setRetryingSection('notifications'); refreshNotifications().finally(() => setRetryingSection('')) }}>{retryingSection === 'notifications' ? 'Retrying…' : 'Retry notifications'}</button>}</div>}
           {dataLoadError && ['teams', 'skills', 'projects'].includes(activePage) && <div className="data-load-warning" role="alert">{dataLoadError} <button className="button ghost" disabled={retryingSection === activePage} onClick={() => retryLoad(activePage)}>{retryingSection === activePage ? 'Retrying…' : 'Retry'}</button></div>}
           {activePage === 'dashboard' && <Dashboard classes={classes} resources={filteredResources} teamPostCount={teamPostCount} helpServiceCount={helpServiceCount} onAddResource={() => { setResourceSaveError(''); setShowResourceModal(true) }} onAddClass={() => setShowClassModal(true)} onNavigate={go} userName={userName} currentUserId={user?.id} resourcesError={resourcesError} classesError={classesError} summaryError={summaryError} onRetry={retryLoad} retryingSection={retryingSection} />}
-          {activePage === 'vault' && <Vault resources={filteredResources} search={vaultSearch} onSearch={(value) => { setVaultSearch(value); }} onAdd={() => { setResourceSaveError(''); setShowResourceModal(true) }} onDelete={deleteResource} onEdit={(item) => { setEditingResource(item); setResourceEditPaid(item.price != null) }} onUnpublish={unpublishResource} onToggleSave={toggleResourceSave} onReport={(id) => { setReportDialog(resources.find((item) => item.id === id) || null); setReportError('') }} onOpenFile={openResourceFile} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }} onNotice={setActionNotice} currentUserId={user?.id} token={session?.access_token} />}
+          {activePage === 'vault' && <Vault resources={filteredResources} search={vaultSearch} onSearch={(value) => { setVaultSearch(value); }} onAdd={() => { setResourceSaveError(''); setShowResourceModal(true) }} onDelete={deleteResource} onEdit={(item) => { setEditingResource(item); setResourceEditPaid(item.price != null) }} onUnpublish={unpublishResource} onToggleSave={toggleResourceSave} onReport={(id) => { setReportDialog(resources.find((item) => item.id === id) || null); setReportError('') }} onOpenFile={openResourceFile} onRate={(item) => { setRateError(''); setRateDialog(item) }} onViewDetail={(item) => setDetailResource(item)} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }} onNotice={setActionNotice} currentUserId={user?.id} token={session?.access_token} />}
           {activePage === 'classes' && <Classes classes={classes} currentUserId={user?.id} onAdd={() => { setEditingClass(null); setShowClassModal(true) }} onEdit={(item) => { setEditingClass(item); setShowClassModal(true) }} onDelete={deleteClass} onPublish={(item) => { setPublishDialog(item); setPublishMode('CLASS'); setPublishPaid(false); setPublishError('') }} expandedClassId={expandedClassId} onToggleExpanded={(id) => setExpandedClassId((current) => current === id ? null : id)} onAddTopic={(classId) => setTopicDialog({ classId, topic: null })} onEditTopic={(classId, topic) => setTopicDialog({ classId, topic })} onDeleteTopic={deleteTopic} onMoveTopic={reorderTopic} onAddMaterial={(classId, topicId) => { setClassResourceError(''); setClassResourceFileName(''); setResourceKind('RESOURCE'); setResourceDialog({ classId, topicId }) }} onRemoveMaterial={removeClassResource} onOpenFile={openResourceFile} />}
           {activePage === 'teams' && <TeamFinder posts={teamPosts} currentUserId={user?.id} onCreate={() => { setEditingTeam(null); setShowTeamModal(true) }} onEdit={(post) => { setEditingTeam(post); setShowTeamModal(true) }} onDelete={deleteTeam} onJoin={(teamId) => setTeamApplicationDialog(teamPosts.find((post) => post.id === teamId) || null)} onWithdraw={withdrawTeamRequest} onRepost={repostTeam} onManageRequests={openTeamRequests} onOpenConversation={openConversation} myApplications={myApplications} myApplicationsLoading={myApplicationsLoading} onLoadMyApplications={loadMyApplications} showApplications={myApplicationsOpen} onToggleApplications={(show) => { setMyApplicationsOpen(show); if (show) loadMyApplications() }} />}
           {activePage === 'skills' && <SkillsMarketplace jobs={jobs} skills={skills} helpRequests={helpRequests} currentUserId={user?.id} onAddSkill={addSkill} onUpdateSkill={updateSkillProfile} onRemoveSkill={removeSkill} onCreate={() => { setEditingJob(null); setShowJobModal(true) }} onEdit={(job) => { setEditingJob(job); setShowJobModal(true) }} onClaim={(serviceId) => setHelpRequestDialog(jobs.find((job) => job.id === serviceId) || null)} onUpdateRequest={updateHelpRequest} onRateRequest={(requestId) => setHelpReviewDialog(helpRequests.find((request) => request.id === requestId) || null)} onDelete={deleteJob} onOpenConversation={openConversation} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }} />}
@@ -1659,33 +1720,111 @@ function App() {
       </main>
 
       {showResourceModal && <Modal title="Add a study resource" onClose={() => { if (!resourceSaving) { setResourceSaveError(''); setShowResourceModal(false) } }}><form className="modal-form" onSubmit={createResource}><label>Resource title<input name="title" required placeholder="e.g. Dynamic Programming Notes" /></label><div className="form-row"><label>Resource type<select name="type"><option>NOTE</option><option>PDF</option><option>VIDEO</option><option>LINK</option><option>CODE</option></select></label><label>Subject<input name="subject" placeholder="e.g. DSA" /></label></div><div className="form-row"><label>Topic<input name="topic" placeholder="e.g. Dynamic Programming" /></label><label>Visibility<select name="visibility"><option value="PUBLIC">Public</option><option value="PRIVATE">Private</option></select></label></div><label>Tags<input name="tags" placeholder="DSA, Arrays, Interview Prep" /></label><label>Upload file<input name="file" type="file" accept=".pdf,.doc,.docx,.txt,.md,.zip,.png,.jpg,.jpeg,.webp,.mp4" style={{ padding: '0.5rem', border: '1px dashed #cbd5e1', borderRadius: '0.5rem', width: '100%', background: '#f8fafc', cursor: 'pointer', marginTop: '4px' }} /></label><label>Description<textarea name="description" placeholder="What will other students learn from this?" /></label>{resourceSaveError && <p role="alert" className="class-topic-empty">{resourceSaveError}</p>}<div className="modal-actions"><button type="button" className="button secondary" disabled={resourceSaving} onClick={() => { setResourceSaveError(''); setShowResourceModal(false) }}>Cancel</button><button className="button primary" type="submit" disabled={resourceSaving}><Plus size={16} /> {resourceSaving ? 'Adding…' : 'Add resource'}</button></div></form></Modal>}
-      {publishDialog && <Modal title="Publish selected study material" onClose={() => !publishing && setPublishDialog(null)}><form key={publishDialog.id} className="modal-form" onSubmit={publishClassMaterial}>
-        <strong>1. Select content from {publishDialog.name}</strong>
-        <label><span><input type="radio" name="selectionMode" value="CLASS" checked={publishMode === 'CLASS'} onChange={() => setPublishMode('CLASS')} /> Entire class</span></label>
-        <label><span><input type="radio" name="selectionMode" value="TOPICS" checked={publishMode === 'TOPICS'} onChange={() => setPublishMode('TOPICS')} /> Selected topics</span></label>
-        {publishMode === 'TOPICS' && (publishDialog.topics || []).map((topic) => <label key={topic.id}><span><input type="checkbox" name="topicIds" value={topic.id} /> {topic.name} ({topic.resources?.length || 0} materials)</span></label>)}
-        <label><span><input type="radio" name="selectionMode" value="RESOURCES" checked={publishMode === 'RESOURCES'} onChange={() => setPublishMode('RESOURCES')} /> Selected materials</span></label>
-        {publishMode === 'RESOURCES' && (publishDialog.topics || []).flatMap((topic) => (topic.resources || []).map((material) => {
-          const label = material.resource?.title || (() => {
-            try { return JSON.parse(material.notes || '{}').title || 'Class note' } catch { return 'Class note' }
-          })()
-          return <label key={material.id}><span><input type="checkbox" name="resourceIds" value={material.id} /> {topic.name}: {label}</span></label>
-        }))}
-        <strong>2. Resource details</strong>
-        <label>Title<input name="title" required maxLength={160} placeholder="e.g. Stack Revision Pack" /></label>
-        <label>Description<textarea name="description" maxLength={5000} placeholder="Describe what students will find in this material." /></label>
-        <div className="form-row"><label>Subject<input name="subject" maxLength={120} placeholder="e.g. Data Structures" /></label><label>Topic<input name="topic" maxLength={120} placeholder="e.g. Revision notes" /></label></div>
-        <label>Tags<input name="tags" placeholder="DSA, revision, exam prep" /></label>
-        <div className="form-row"><label>Degree / stream<input name="degree" maxLength={120} placeholder="Optional" /></label><label>Semester<input name="semester" maxLength={80} placeholder="Optional" /></label></div>
-        <label>Resource type<select name="type" defaultValue="NOTE"><option value="NOTE">NOTE</option><option value="PDF">PDF</option><option value="VIDEO">VIDEO</option><option value="LINK">LINK</option><option value="CODE">CODE</option></select></label>
-        <strong>3. Access</strong>
-        <label>Access<select name="access" value={publishPaid ? 'PAID' : 'FREE'} onChange={(event) => setPublishPaid(event.target.value === 'PAID')}><option value="FREE">Free</option><option value="PAID">Paid</option></select></label>
-        {publishPaid && <><div className="form-row"><label>Price (₹)<input name="price" type="number" required min="0.01" step="0.01" /></label><label>Payment method<select name="paymentMethod" required defaultValue="UPI"><option value="UPI">UPI</option><option value="CASH">Cash</option></select></label></div><label>UPI ID (required for UPI)<input name="upiId" placeholder="name@bank" /></label><label>Payment instructions<textarea name="paymentInstructions" maxLength={2000} placeholder="Optional instructions for students." /></label><p className="class-topic-empty">Payment is arranged directly between students. StudyOS does not process or confirm payment.</p></>}
-        <strong>4. Publish</strong>
-        <p className="class-topic-empty">Only publish material you own or have permission to share. Do not share copyrighted course material or someone else’s work without permission. Use shared material for learning and follow your institution’s academic rules.</p>
-        {publishError && <p role="alert" className="class-topic-empty">{publishError}</p>}
-        <div className="modal-actions"><button type="button" className="button secondary" disabled={publishing} onClick={() => setPublishDialog(null)}>Cancel</button><button className="button primary" type="submit" disabled={publishing}>{publishing ? 'Publishing…' : 'Publish to Study Notes Vault'}</button></div>
-      </form></Modal>}
+      {publishDialog && (
+        <Modal title="Publish selected study material" onClose={() => !publishing && setPublishDialog(null)}>
+          <form key={publishDialog.id} className="modal-form" onSubmit={publishClassMaterial}>
+            <div className="modal-note">
+              <strong>1. Select content from {publishDialog.name}</strong>
+              <p>Choose whether to publish the entire class or specific topics and study materials.</p>
+            </div>
+
+            <div className="publish-mode-options" role="radiogroup" aria-label="Content selection mode">
+              <label className={`publish-mode-card ${publishMode === 'CLASS' ? 'is-selected' : ''}`}>
+                <input type="radio" name="selectionMode" value="CLASS" checked={publishMode === 'CLASS'} onChange={() => setPublishMode('CLASS')} />
+                <div className="publish-mode-label">
+                  <strong>Entire class</strong>
+                  <small>Publishes all {publishDialog.topics?.length || 0} topics and materials in this class</small>
+                </div>
+              </label>
+
+              <label className={`publish-mode-card ${publishMode === 'TOPICS' ? 'is-selected' : ''}`}>
+                <input type="radio" name="selectionMode" value="TOPICS" checked={publishMode === 'TOPICS'} onChange={() => setPublishMode('TOPICS')} />
+                <div className="publish-mode-label">
+                  <strong>Selected topics</strong>
+                  <small>Pick specific topics to publish</small>
+                </div>
+              </label>
+
+              {publishMode === 'TOPICS' && (
+                <div className="publish-sublist">
+                  {(publishDialog.topics || []).length ? (
+                    publishDialog.topics.map((topic) => (
+                      <label key={topic.id} className="publish-subitem">
+                        <input type="checkbox" name="topicIds" value={topic.id} />
+                        <div>
+                          <strong>{topic.name}</strong>
+                          <span className="publish-subitem-desc"> · {topic.resources?.length || 0} materials</span>
+                        </div>
+                      </label>
+                    ))
+                  ) : (
+                    <p className="class-topic-empty">No topics in this class yet.</p>
+                  )}
+                </div>
+              )}
+
+              <label className={`publish-mode-card ${publishMode === 'RESOURCES' ? 'is-selected' : ''}`}>
+                <input type="radio" name="selectionMode" value="RESOURCES" checked={publishMode === 'RESOURCES'} onChange={() => setPublishMode('RESOURCES')} />
+                <div className="publish-mode-label">
+                  <strong>Selected materials</strong>
+                  <small>Choose individual study materials</small>
+                </div>
+              </label>
+
+              {publishMode === 'RESOURCES' && (
+                <div className="publish-sublist">
+                  {(publishDialog.topics || []).flatMap((topic) => (topic.resources || []).map((material) => {
+                    const label = material.resource?.title || (() => {
+                      try { return JSON.parse(material.notes || '{}').title || 'Class note' } catch { return 'Class note' }
+                    })()
+                    return (
+                      <label key={material.id} className="publish-subitem">
+                        <input type="checkbox" name="resourceIds" value={material.id} />
+                        <div>
+                          <strong>{label}</strong>
+                          <span className="publish-subitem-desc"> ({topic.name})</span>
+                        </div>
+                      </label>
+                    )
+                  })).length ? (
+                    (publishDialog.topics || []).flatMap((topic) => (topic.resources || []).map((material) => {
+                      const label = material.resource?.title || (() => {
+                        try { return JSON.parse(material.notes || '{}').title || 'Class note' } catch { return 'Class note' }
+                      })()
+                      return (
+                        <label key={material.id} className="publish-subitem">
+                          <input type="checkbox" name="resourceIds" value={material.id} />
+                          <div>
+                            <strong>{label}</strong>
+                            <span className="publish-subitem-desc"> ({topic.name})</span>
+                          </div>
+                        </label>
+                      )
+                    }))
+                  ) : (
+                    <p className="class-topic-empty">No materials in this class yet.</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <strong>2. Resource details</strong>
+            <label>Title<input name="title" required maxLength={160} placeholder="e.g. Stack Revision Pack" /></label>
+            <label>Description<textarea name="description" maxLength={5000} placeholder="Describe what students will find in this material." /></label>
+            <div className="form-row"><label>Subject<input name="subject" maxLength={120} placeholder="e.g. Data Structures" /></label><label>Topic<input name="topic" maxLength={120} placeholder="e.g. Revision notes" /></label></div>
+            <label>Tags (comma separated)<input name="tags" placeholder="DSA, revision, exam prep" /></label>
+            <div className="form-row"><label>Degree / stream<input name="degree" maxLength={120} placeholder="Optional" /></label><label>Semester<input name="semester" maxLength={80} placeholder="Optional" /></label></div>
+            <label>Resource type<select name="type" defaultValue="NOTE"><option value="NOTE">NOTE</option><option value="PDF">PDF</option><option value="VIDEO">VIDEO</option><option value="LINK">LINK</option><option value="CODE">CODE</option></select></label>
+            <strong>3. Access & Pricing</strong>
+            <label>Access<select name="access" value={publishPaid ? 'PAID' : 'FREE'} onChange={(event) => setPublishPaid(event.target.value === 'PAID')}><option value="FREE">Free</option><option value="PAID">Paid</option></select></label>
+            {publishPaid && <><div className="form-row"><label>Price (₹)<input name="price" type="number" required min="0.01" step="0.01" /></label><label>Payment method<select name="paymentMethod" required defaultValue="UPI"><option value="UPI">UPI</option><option value="CASH">Cash</option></select></label></div><label>UPI ID (required for UPI)<input name="upiId" placeholder="name@bank" /></label><label>Payment instructions<textarea name="paymentInstructions" maxLength={2000} placeholder="Optional instructions for students." /></label><p className="class-topic-empty">Payment is arranged directly between students. StudyOS does not process or confirm payment.</p></>}
+            <strong>4. Academic Guidelines</strong>
+            <p className="class-topic-empty">Only publish material you own or have permission to share. Do not share copyrighted course material or someone else’s work without permission.</p>
+            {publishError && <p role="alert" className="form-error">{publishError}</p>}
+            <div className="modal-actions"><button type="button" className="button secondary" disabled={publishing} onClick={() => setPublishDialog(null)}>Cancel</button><button className="button primary" type="submit" disabled={publishing}>{publishing ? 'Publishing…' : 'Publish to Study Notes Vault'}</button></div>
+          </form>
+        </Modal>
+      )}
       {editingResource && <Modal title="Edit Vault resource" onClose={() => !savingResourceEdit && setEditingResource(null)}><form key={editingResource.id} className="modal-form" onSubmit={savePublishedResource}>
         <label>Title<input name="title" required maxLength={160} defaultValue={editingResource.title} /></label>
         <label>Description<textarea name="description" maxLength={5000} defaultValue={editingResource.description || ''} /></label>
@@ -1721,6 +1860,8 @@ function App() {
       {showLabModal && <Modal title={editingLab ? 'Edit repository document' : 'Upload a repository document'} onClose={() => !labSaving && (setShowLabModal(false), setEditingLab(null))}><LabDocumentForm key={editingLab?.id || 'new-lab-document'} lab={editingLab} saving={labSaving} progress={labUploadProgress} onSubmit={createLab} onCancel={() => { setShowLabModal(false); setEditingLab(null) }} /></Modal>}
       {helpReviewDialog && <Modal title="Rate completed help" onClose={() => setHelpReviewDialog(null)}><ReviewForm request={helpReviewDialog} onSubmit={rateHelpRequest} onClose={() => setHelpReviewDialog(null)} /></Modal>}
       {reportDialog && <Modal title="Report this resource" onClose={() => !reportSaving && setReportDialog(null)}><ReportResourceForm resource={reportDialog} saving={reportSaving} error={reportError} onSubmit={(report) => reportResource(reportDialog.id, report)} onCancel={() => setReportDialog(null)} /></Modal>}
+      {rateDialog && <RateResourceModal resource={rateDialog} saving={rateSaving} error={rateError} onSubmit={(score) => submitResourceRating(rateDialog.id, score)} onCancel={() => setRateDialog(null)} />}
+      {detailResource && <ResourceDetailModal resource={detailResource} currentUserId={user?.id} onOpenFile={openResourceFile} onToggleSave={toggleResourceSave} onRate={(item) => { setRateError(''); setRateDialog(item) }} onReport={(id) => { setReportDialog(resources.find((item) => item.id === id) || null); setReportError('') }} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile'); setDetailResource(null) }} onClose={() => setDetailResource(null)} />}
       {actionNotice && <div className="action-toast" role="status">{actionNotice}</div>}
     </div>
   )
@@ -1892,7 +2033,78 @@ function PublicProfile({ profileId, token, onBack }) {
   if (error || !user) return <section className="placeholder-page"><h1>Profile unavailable</h1><p>{error || 'This profile is private.'}</p><button className="button ghost" onClick={onBack}>Back to dashboard</button></section>
 
   const identity = user.academicIdentity || {}
-  return <section className="account-page"><div className="page-heading"><div><p className="eyebrow">PUBLIC ACADEMIC PROFILE</p><h1>{user.name || 'StudyOS member'}</h1><p>{[identity.degree, identity.stream, identity.branch, identity.institution].filter(Boolean).join(' · ')}</p></div><button className="button ghost" onClick={onBack}>Back to dashboard</button></div><div className="skill-profile-list">{user.skills.map((skill) => <article className="skill-profile-card public-skill" key={skill.id}><strong>{skill.name}</strong><span>{String(skill.proficiency || 'BEGINNER').toLowerCase()}</span>{skill.experience && <p>{skill.experience}</p>}{skill.portfolioUrl && <a href={skill.portfolioUrl} target="_blank" rel="noreferrer">View portfolio <ExternalLink size={13} /></a>}</article>)}</div><div className="profile-links">{identity.github && <a href={identity.github} target="_blank" rel="noreferrer">GitHub</a>}{identity.linkedin && <a href={identity.linkedin} target="_blank" rel="noreferrer">LinkedIn</a>}{identity.portfolio && <a href={identity.portfolio} target="_blank" rel="noreferrer">Portfolio</a>}</div></section>
+  const profile = user.profile || {}
+  const skills = Array.isArray(user.skills) ? user.skills : []
+
+  return (
+    <section className="account-page">
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">PUBLIC ACADEMIC PROFILE</p>
+          <h1>{user.name || profile.fullName || 'StudyOS member'}</h1>
+          <p>{[identity.degree, identity.stream, identity.branch || profile.department, identity.institution || profile.institution].filter(Boolean).join(' · ')}</p>
+        </div>
+        <button className="button ghost" onClick={onBack}>Back to dashboard</button>
+      </div>
+
+      <div className="account-layout">
+        <div className="account-panel profile-panel">
+          <div className="panel-heading">
+            <div className="profile-avatar">{(user.name || 'ST').slice(0, 2).toUpperCase()}</div>
+            <div>
+              <h2>{user.name || 'Student'}</h2>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                {profile.residency && (
+                  <span className="type-pill">
+                    {profile.residency === 'HOSTELER' ? '🏠 Hostel Resident' : '🎒 Day Scholar'}
+                  </span>
+                )}
+                {profile.semester && <span className="type-pill">Semester {profile.semester}</span>}
+                {profile.section && <span className="type-pill">Section {profile.section}</span>}
+                {profile.rollNumber && <span className="type-pill">Roll #{profile.rollNumber}</span>}
+              </div>
+            </div>
+          </div>
+
+          {profile.bio && (
+            <p className="resource-detail-desc" style={{ margin: '14px 0' }}>
+              {profile.bio}
+            </p>
+          )}
+
+          {profile.experience && (
+            <div style={{ margin: '14px 0' }}>
+              <strong style={{ fontSize: '11px', textTransform: 'uppercase', color: '#64748b' }}>Experience & Background</strong>
+              <p style={{ fontSize: '13px', color: '#334155', marginTop: '4px', whiteSpace: 'pre-wrap' }}>{profile.experience}</p>
+            </div>
+          )}
+
+          {skills.length > 0 && (
+            <div className="skill-profile-list" style={{ marginTop: '14px' }}>
+              {skills.map((skill) => (
+                <article className="skill-profile-card public-skill" key={skill.id || skill.name}>
+                  <strong>{skill.name}</strong>
+                  <span>{String(skill.proficiency || 'SKILLED').toLowerCase()}</span>
+                  {skill.experience && <p>{skill.experience}</p>}
+                  {skill.portfolioUrl && (
+                    <a href={skill.portfolioUrl} target="_blank" rel="noreferrer">
+                      View portfolio <ExternalLink size={13} />
+                    </a>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+
+          <div className="profile-links" style={{ marginTop: '16px' }}>
+            {identity.github && <a href={identity.github} target="_blank" rel="noreferrer">GitHub</a>}
+            {identity.linkedin && <a href={identity.linkedin} target="_blank" rel="noreferrer">LinkedIn</a>}
+            {identity.portfolio && <a href={identity.portfolio} target="_blank" rel="noreferrer">Portfolio</a>}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
 }
 
 function Dashboard({ classes, resources, teamPostCount, helpServiceCount, onAddResource, onAddClass, onNavigate, userName, currentUserId, resourcesError, classesError, summaryError, onRetry, retryingSection }) {
@@ -1939,12 +2151,17 @@ function Dashboard({ classes, resources, teamPostCount, helpServiceCount, onAddR
   </>
 }
 
-function Vault({ resources, search, onSearch, onAdd, onDelete, onEdit, onUnpublish, onToggleSave, onReport, onOpenFile, onOpenProfile, onNotice, currentUserId, token }) {
+function Vault({ resources, search, onSearch, onAdd, onDelete, onEdit, onUnpublish, onToggleSave, onReport, onOpenFile, onRate, onViewDetail, onOpenProfile, onNotice, currentUserId, token }) {
   const [sort, setSort] = useState('newest')
   const [visibility, setVisibility] = useState('all')
   const [pendingAction, setPendingAction] = useState('')
   const visibleResources = useMemo(() => [...resources]
-    .filter((item) => visibility === 'all' || (visibility === 'public' ? item.visibility === 'PUBLIC' : item.visibility !== 'PUBLIC' && currentUserId === item.creatorId))
+    .filter((item) => {
+      if (visibility === 'saved') return Boolean(item.savedByUser)
+      if (visibility === 'public') return item.visibility === 'PUBLIC'
+      if (visibility === 'mine') return item.visibility !== 'PUBLIC' && currentUserId === item.creatorId
+      return true
+    })
     .sort((left, right) => sort === 'oldest'
       ? new Date(left.createdAt || 0) - new Date(right.createdAt || 0)
       : new Date(right.createdAt || 0) - new Date(left.createdAt || 0)), [resources, visibility, sort, currentUserId])
@@ -1966,8 +2183,16 @@ function Vault({ resources, search, onSearch, onAdd, onDelete, onEdit, onUnpubli
     <div className="page-heading"><div><p className="eyebrow">STUDYOS LIBRARY</p><h1>Study Notes & Resources Vault</h1><p>Discover notes, guides and resources shared by your academic community.</p></div><button className="button primary" onClick={onAdd}><Plus size={16} /> Add Resource</button></div>
     <div className="vault-toolbar">
       <div className="vault-search"><Search size={17} /><input value={search} onChange={(event) => onSearch(event.target.value)} aria-label="Search Vault resources" placeholder="Search resources..." /></div>
-      <select aria-label="Filter resources by visibility" value={visibility} onChange={(event) => setVisibility(event.target.value)}><option value="all">All visible resources</option><option value="public">Public resources</option><option value="mine">My unpublished resources</option></select>
-      <select aria-label="Sort resources" value={sort} onChange={(event) => setSort(event.target.value)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select>
+      <select aria-label="Filter resources by visibility" value={visibility} onChange={(event) => setVisibility(event.target.value)}>
+        <option value="all">All visible resources</option>
+        <option value="saved">Saved / Bookmarked</option>
+        <option value="public">Public resources</option>
+        <option value="mine">My unpublished resources</option>
+      </select>
+      <select aria-label="Sort resources" value={sort} onChange={(event) => setSort(event.target.value)}>
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+      </select>
     </div>
     <div className="vault-list">{visibleResources.length ? visibleResources.map((item) => {
       const isOwner = currentUserId === item.creatorId
@@ -1976,22 +2201,46 @@ function Vault({ resources, search, onSearch, onAdd, onDelete, onEdit, onUnpubli
       return <div className="vault-entry" key={item.id}><article className="vault-row">
         <div className={`resource-thumb ${item.color || 'purple'}`}><FileText size={22} /></div>
         <div className="vault-info">
-          <div className="resource-title-line"><strong>{item.title}</strong>{item.type && <span className="type-pill">{item.type}</span>}{isPrivate && isOwner && <span className="type-pill">Private</span>}</div>
+          <div className="resource-title-line">
+            <strong
+              role="button"
+              tabIndex={0}
+              className="resource-title-link"
+              onClick={() => onViewDetail(item)}
+              onKeyDown={(e) => e.key === 'Enter' && onViewDetail(item)}
+              style={{ cursor: 'pointer' }}
+              title="Click to view details"
+            >
+              {item.title}
+            </strong>
+            {item.type && <span className="type-pill">{item.type}</span>}
+            {isPrivate && isOwner && <span className="type-pill">Private</span>}
+          </div>
           <p>{[item.subjectLabel, item.tags.join(', ') || 'General topic'].filter(Boolean).join(' · ')} · Shared by <button className="profile-link-button" type="button" disabled={isOwner} onClick={() => onOpenProfile(item.creator?.id || item.creatorId)}>{creatorLabel}</button></p>
           {item.price != null && <small>{`₹${item.price} · ${item.paymentMethod || 'Direct payment'}`}</small>}
           {item.paymentInst && <small>{item.paymentInst}</small>}
           {item.upiId && <small>UPI: {item.upiId}</small>}
           <small>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'Study resource'}{item.visibility ? ` · ${isPrivate ? 'Private' : 'Public'}` : ''}</small>
         </div>
-        <div className="vault-rating" aria-label={`${item.ratingCount || 0} ratings`}><Star size={14} fill="currentColor" /> {item.ratingCount ? `${item.averageRating.toFixed(1)} · ${item.ratingCount}` : 'Not rated'}</div>
+        <div
+          className={`vault-rating ${!isOwner && !isPrivate ? 'is-clickable' : ''}`}
+          onClick={() => !isOwner && !isPrivate && onRate(item)}
+          title={isOwner ? 'You cannot rate your own resource' : 'Click to rate this resource'}
+          style={{ cursor: !isOwner && !isPrivate ? 'pointer' : 'default' }}
+          aria-label={`${item.ratingCount || 0} ratings`}
+        >
+          <Star size={14} fill={item.ratingCount ? 'currentColor' : 'none'} /> {item.ratingCount ? `${item.averageRating.toFixed(1)} · (${item.ratingCount})` : 'Not rated yet'}
+        </div>
         <div className="post-actions">
+          <button className="button ghost" onClick={() => onViewDetail(item)}>Details</button>
           {item.files?.map((file) => <button key={file.id} className="button ghost" disabled={Boolean(pendingAction)} onClick={() => runAction(`file-${file.id}`, () => onOpenFile(item.id, file.id))}><Download size={14} /> Open {file.fileName || 'file'}</button>)}
           <button className="button ghost" disabled={Boolean(pendingAction)} onClick={() => runAction(`save-${item.id}`, () => onToggleSave(item.id))}>{pendingAction === `save-${item.id}` ? 'Saving…' : item.savedByUser ? 'Unsave' : 'Save'}</button>
+          {!isOwner && !isPrivate && <button className="button ghost" onClick={() => onRate(item)}><Star size={13} /> Rate</button>}
           {isOwner && <><button className="button ghost" disabled={Boolean(pendingAction)} onClick={() => onEdit(item)}>Edit</button>{item.visibility === 'PUBLIC' && <button className="button ghost" disabled={Boolean(pendingAction)} onClick={() => runAction(`unpublish-${item.id}`, () => onUnpublish(item))}>Unpublish</button>}<button className="icon-danger" disabled={Boolean(pendingAction)} onClick={() => runAction(`delete-${item.id}`, () => onDelete(item.id))} aria-label="Delete resource" title="Delete resource"><Trash2 size={15} /></button></>}
           {!isPrivate && !isOwner && <button className="button ghost" disabled={Boolean(pendingAction)} onClick={() => onReport(item.id)}>Report</button>}
         </div>
       </article><ResourceDiscussion resource={item} currentUserId={currentUserId} token={token} onOpenProfile={onOpenProfile} /></div>
-    }) : <div className="empty-state"><Library size={29} /><strong>{search.trim() ? 'No matching resources' : 'No resources found'}</strong><p>{search.trim() ? 'Try a different search term or clear the search.' : 'Try a different visibility filter or add the first resource.'}</p>{search.trim() ? <button className="button secondary" onClick={() => onSearch('')}>Clear search</button> : <button className="button primary" onClick={onAdd}><Plus size={16} /> Add resource</button>}</div>}</div>
+    }) : <div className="empty-state"><Library size={29} /><strong>{search.trim() ? 'No matching resources' : visibility === 'saved' ? 'No saved resources yet' : 'No resources found'}</strong><p>{search.trim() ? 'Try a different search term or clear the search.' : visibility === 'saved' ? 'Click Save on any resource card in the Vault to bookmark it here.' : 'Try a different visibility filter or add the first resource.'}</p>{search.trim() ? <button className="button secondary" onClick={() => onSearch('')}>Clear search</button> : <button className="button primary" onClick={onAdd}><Plus size={16} /> Add resource</button>}</div>}</div>
   </section>
 }
 
@@ -2692,38 +2941,46 @@ function AccountSettings() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState({
-    name: globalProfile?.profile?.fullName || globalProfile?.name || user?.user_metadata?.name || '',
-    avatarUrl: globalProfile?.avatarUrl || '',
-    degree: identity.degree || '',
-    stream: identity.stream || '',
-    branch: identity.branch || '',
-    specialization: identity.specialization || '',
-    institution: identity.institution || '',
-    year: identity.year || '',
-    semester: identity.semester || '',
-    session: identity.session || '',
-    github: identity.github || '',
-    linkedin: identity.linkedin || '',
-    portfolio: identity.portfolio || '',
-    isPublic: Boolean(identity.isPublic),
+    name: campusProfile?.fullName || globalProfile?.name || user?.user_metadata?.name || '',
+    avatarUrl: campusProfile?.avatarUrl || globalProfile?.avatarUrl || '',
+    rollNumber: campusProfile?.rollNumber || student?.rollNumber || '',
+    section: campusProfile?.section || student?.section?.name || '',
+    department: campusProfile?.department || student?.section?.department?.name || identity.branch || '',
+    institution: campusProfile?.institution || identity.institution || institution.name || institution.code || '',
+    semester: campusProfile?.semester || student?.semester || identity.semester || '',
+    year: campusProfile?.year || identity.year || '',
+    residency: campusProfile?.residency || 'DAY_SCHOLAR',
+    bio: campusProfile?.bio || '',
+    skills: campusProfile?.skills || (Array.isArray(globalProfile?.skills) ? globalProfile.skills.map((s) => s.name).join(', ') : '') || '',
+    experience: campusProfile?.experience || '',
+    github: campusProfile?.github || identity.github || '',
+    linkedin: campusProfile?.linkedin || identity.linkedin || '',
+    portfolio: campusProfile?.portfolio || identity.portfolio || '',
+    isPublic: Boolean(identity.isPublic ?? campusProfile?.isPublic ?? true),
   });
 
   useEffect(() => {
+    const ident = globalProfile?.academicIdentity || {};
+    const cp = globalProfile?.profile || {};
+    const inst = globalProfile?.Institution || {};
+    const st = globalProfile?.student || {};
     setProfile({
-      name: globalProfile?.profile?.fullName || globalProfile?.name || user?.user_metadata?.name || '',
-      avatarUrl: globalProfile?.avatarUrl || '',
-      degree: globalProfile?.academicIdentity?.degree || '',
-      stream: globalProfile?.academicIdentity?.stream || '',
-      branch: globalProfile?.academicIdentity?.branch || '',
-      specialization: globalProfile?.academicIdentity?.specialization || '',
-      institution: globalProfile?.academicIdentity?.institution || '',
-      year: globalProfile?.academicIdentity?.year || '',
-      semester: globalProfile?.academicIdentity?.semester || '',
-      session: globalProfile?.academicIdentity?.session || '',
-      github: globalProfile?.academicIdentity?.github || '',
-      linkedin: globalProfile?.academicIdentity?.linkedin || '',
-      portfolio: globalProfile?.academicIdentity?.portfolio || '',
-      isPublic: Boolean(globalProfile?.academicIdentity?.isPublic),
+      name: cp.fullName || globalProfile?.name || user?.user_metadata?.name || '',
+      avatarUrl: cp.avatarUrl || globalProfile?.avatarUrl || '',
+      rollNumber: cp.rollNumber || st.rollNumber || '',
+      section: cp.section || st.section?.name || '',
+      department: cp.department || st.section?.department?.name || ident.branch || '',
+      institution: cp.institution || ident.institution || inst.name || inst.code || '',
+      semester: cp.semester || st.semester || ident.semester || '',
+      year: cp.year || ident.year || '',
+      residency: cp.residency || 'DAY_SCHOLAR',
+      bio: cp.bio || '',
+      skills: cp.skills || (Array.isArray(globalProfile?.skills) ? globalProfile.skills.map((s) => s.name).join(', ') : '') || '',
+      experience: cp.experience || '',
+      github: cp.github || ident.github || '',
+      linkedin: cp.linkedin || ident.linkedin || '',
+      portfolio: cp.portfolio || ident.portfolio || '',
+      isPublic: Boolean(ident.isPublic ?? cp.isPublic ?? true),
     });
   }, [globalProfile, user]);
 
@@ -2755,10 +3012,185 @@ function AccountSettings() {
   };
 
   const initialName = profile.name ? profile.name.substring(0, 2).toUpperCase() : 'ST';
-  const assignedSection = student?.section?.name || campusProfile?.section || '';
-  const department = student?.section?.department?.name || campusProfile?.department || '';
+  const nameParts = (profile.name || '').split(' ');
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || '';
 
-  return <section className="account-page"><div className="page-heading"><div><p className="eyebrow">PERSONAL WORKSPACE</p><h1>Account & Settings</h1><p>Manage your academic identity and experience.</p></div>{saved && <span className="save-status" role="status">Saved successfully</span>}{error && <span className="auth-error" role="alert">{error}</span>}</div><div className="account-layout"><form className="account-panel profile-panel" onSubmit={save}><div className="panel-heading"><div className="profile-avatar">{initialName}</div><div><h2>Academic profile</h2><p>This information is linked to your StudyOS account.</p></div></div><div className="account-fields"><label>First name<input name="firstName" value={profile.name?.split(' ')[0] || ''} onChange={(e) => setProfile({ ...profile, name: e.target.value + ' ' + (profile.name?.split(' ').slice(1).join(' ') || '') })} maxLength={60} /></label><label>Last name<input name="lastName" value={profile.name?.split(' ').slice(1).join(' ') || ''} onChange={(e) => setProfile({ ...profile, name: (profile.name?.split(' ')[0] || '') + ' ' + e.target.value })} maxLength={60} /></label><label>Email<input name="email" value={user?.email || ''} readOnly aria-readonly="true" /></label><label>Roll Number<input name="rollNumber" value={student?.rollNumber || campusProfile?.rollNumber || ''} readOnly aria-readonly="true" placeholder="Not provided" /></label><label>Section<input name="section" value={assignedSection} readOnly aria-readonly="true" placeholder="Not assigned" /></label><label>Department<input name="department" value={department} readOnly aria-readonly="true" placeholder="Not provided" /></label><label>Institution<input name="institution" value={institution.name || institution.code || ''} readOnly aria-readonly="true" placeholder="Not assigned" /></label><label>Semester<input name="semester" value={student?.semester || campusProfile?.semester || ''} readOnly aria-readonly="true" placeholder="Not provided" /></label></div><div className="panel-footer"><span>{user ? `Connected to ${user.email}` : 'Not connected'}</span><button className="button primary" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save changes'}</button></div></form></div></section>
+  return (
+    <section className="account-page">
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">PERSONAL WORKSPACE</p>
+          <h1>Account & Settings</h1>
+          <p>Manage your academic identity and experience.</p>
+        </div>
+        {saved && <span className="save-status" role="status">Saved successfully</span>}
+        {error && <span className="auth-error" role="alert">{error}</span>}
+      </div>
+      <div className="account-layout">
+        <form className="account-panel profile-panel" onSubmit={save}>
+          <div className="panel-heading">
+            <div className="profile-avatar">{initialName}</div>
+            <div>
+              <h2>Academic profile</h2>
+              <p>This information is linked to your StudyOS account.</p>
+            </div>
+          </div>
+          <div className="account-fields">
+            <label>
+              First name
+              <input
+                name="firstName"
+                value={firstName}
+                onChange={(e) => setProfile({ ...profile, name: [e.target.value, lastName].filter(Boolean).join(' ') })}
+                maxLength={60}
+              />
+            </label>
+            <label>
+              Last name
+              <input
+                name="lastName"
+                value={lastName}
+                onChange={(e) => setProfile({ ...profile, name: [firstName, e.target.value].filter(Boolean).join(' ') })}
+                maxLength={60}
+              />
+            </label>
+            <label>
+              Email
+              <input name="email" value={user?.email || ''} readOnly aria-readonly="true" />
+            </label>
+            <label>
+              Roll Number
+              <input
+                name="rollNumber"
+                value={profile.rollNumber}
+                onChange={update}
+                placeholder="e.g. 21BCE1042"
+              />
+            </label>
+            <label>
+              College / Institution
+              <input
+                name="institution"
+                value={profile.institution}
+                onChange={update}
+                placeholder="e.g. Stanford University"
+              />
+            </label>
+            <label>
+              Department / Branch
+              <input
+                name="department"
+                value={profile.department}
+                onChange={update}
+                placeholder="e.g. Computer Science & Engineering"
+              />
+            </label>
+            <label>
+              Section
+              <input
+                name="section"
+                value={profile.section}
+                onChange={update}
+                placeholder="e.g. Section A"
+              />
+            </label>
+            <label>
+              Semester / Year
+              <input
+                name="semester"
+                value={profile.semester}
+                onChange={update}
+                placeholder="e.g. 6th Semester"
+              />
+            </label>
+            <label>
+              Living arrangement
+              <select name="residency" value={profile.residency || 'DAY_SCHOLAR'} onChange={update}>
+                <option value="DAY_SCHOLAR">Day Scholar</option>
+                <option value="HOSTELER">Hostel Resident</option>
+              </select>
+            </label>
+            <label className="account-field-full">
+              Short bio
+              <textarea
+                name="bio"
+                value={profile.bio || ''}
+                onChange={update}
+                maxLength={500}
+                placeholder="Brief bio about your academic focus and interests."
+              />
+            </label>
+            <label className="account-field-full">
+              Skills (comma separated)
+              <input
+                name="skills"
+                value={profile.skills || ''}
+                onChange={update}
+                maxLength={200}
+                placeholder="e.g. Python, React, Algorithms, UI Design"
+              />
+            </label>
+            <label className="account-field-full">
+              Experience / Projects
+              <textarea
+                name="experience"
+                value={profile.experience || ''}
+                onChange={update}
+                maxLength={500}
+                placeholder="Key project highlights, internships, or academic experience."
+              />
+            </label>
+            <label>
+              Portfolio URL
+              <input
+                name="portfolio"
+                type="url"
+                value={profile.portfolio || ''}
+                onChange={update}
+                placeholder="https://..."
+              />
+            </label>
+            <label>
+              GitHub URL
+              <input
+                name="github"
+                type="url"
+                value={profile.github || ''}
+                onChange={update}
+                placeholder="https://github.com/..."
+              />
+            </label>
+            <label>
+              LinkedIn URL
+              <input
+                name="linkedin"
+                type="url"
+                value={profile.linkedin || ''}
+                onChange={update}
+                placeholder="https://linkedin.com/in/..."
+              />
+            </label>
+            <label className="profile-visibility-toggle">
+              <input
+                type="checkbox"
+                name="isPublic"
+                checked={profile.isPublic}
+                onChange={update}
+              />
+              <span>Public profile visible in StudyOS search and directory</span>
+            </label>
+          </div>
+          <div className="panel-footer">
+            <span>{user ? `Connected to ${user.email}` : 'Not connected'}</span>
+            <button className="button primary" type="submit" disabled={saving}>
+              {saving ? 'Saving...' : 'Save changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+  );
 }
 function Stat({ label, value, icon: Icon, tone }) { return <div className="stat-card"><div><p>{label}</p><strong className={tone}>{value}</strong></div><span className={`stat-icon ${tone}`}><Icon size={18} /></span></div> }
 function SectionHeader({ title, action, onClick }) { return <div className="section-header"><h2>{title}</h2>{onClick && <button onClick={onClick}>{action} <ArrowRight size={14} /></button>}</div> }
@@ -2824,6 +3256,201 @@ function ReportResourceForm({ resource, saving, error, onSubmit, onCancel }) {
     {error && <p className="form-error" role="alert">{error}</p>}
     <div className="modal-actions"><button type="button" className="button secondary" disabled={saving} onClick={onCancel}>Cancel</button><button className="button primary" type="submit" disabled={saving}>{saving ? 'Submitting…' : 'Submit report'}</button></div>
   </form>
+}
+
+function RateResourceModal({ resource, saving, error, onSubmit, onCancel }) {
+  const [hoveredScore, setHoveredScore] = useState(0)
+  const [selectedScore, setSelectedScore] = useState(5)
+
+  const labels = {
+    1: '1 star · Poor',
+    2: '2 stars · Fair',
+    3: '3 stars · Good',
+    4: '4 stars · Very Good',
+    5: '5 stars · Excellent',
+  }
+
+  const activeScore = hoveredScore || selectedScore
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    onSubmit(selectedScore)
+  }
+
+  return (
+    <Modal title="Rate Resource" onClose={onCancel}>
+      <form className="modal-form" onSubmit={handleSubmit}>
+        <div className="modal-note">
+          <strong>{resource?.title}</strong>
+          <p>How helpful was this resource for your studies?</p>
+        </div>
+
+        <div className="rating-modal-stars">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              key={star}
+              type="button"
+              className={`star-rating-btn ${star <= activeScore ? 'active' : ''}`}
+              onMouseEnter={() => setHoveredScore(star)}
+              onMouseLeave={() => setHoveredScore(0)}
+              onClick={() => setSelectedScore(star)}
+              aria-label={`${star} star`}
+            >
+              <Star size={32} fill={star <= activeScore ? '#f59e0b' : 'none'} stroke={star <= activeScore ? '#f59e0b' : '#94a3b8'} />
+            </button>
+          ))}
+        </div>
+
+        <div className="rating-score-label">
+          {labels[activeScore] || 'Select rating'}
+        </div>
+
+        {error && <p className="form-error" role="alert">{error}</p>}
+
+        <div className="modal-actions">
+          <button type="button" className="button secondary" disabled={saving} onClick={onCancel}>
+            Cancel
+          </button>
+          <button className="button primary" type="submit" disabled={saving || !selectedScore}>
+            {saving ? 'Submitting…' : 'Submit rating'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function ResourceDetailModal({ resource, currentUserId, onOpenFile, onToggleSave, onRate, onReport, onOpenProfile, onClose }) {
+  if (!resource) return null
+
+  const isOwner = resource.creatorId === currentUserId || resource.creator?.id === currentUserId
+  const isPrivate = resource.visibility && resource.visibility !== 'PUBLIC'
+  const authorName = resource.creatorName || resource.creator?.name || 'Student'
+  const authorId = resource.creator?.id || resource.creatorId
+
+  return (
+    <Modal title={resource.title || 'Resource details'} onClose={onClose}>
+      <div className="resource-detail-modal-body">
+        <div className="resource-detail-meta">
+          <div className="resource-detail-meta-item">
+            <strong>Subject</strong>
+            <span>{resource.subjectLabel || resource.subject || 'General'}</span>
+          </div>
+          <div className="resource-detail-meta-item">
+            <strong>Resource Type</strong>
+            <span>{resource.type || 'NOTE'}</span>
+          </div>
+          <div className="resource-detail-meta-item">
+            <strong>Shared by</strong>
+            <span>
+              <button
+                type="button"
+                className="profile-link-button"
+                disabled={isOwner || !authorId}
+                onClick={() => onOpenProfile(authorId)}
+              >
+                {authorName}
+              </button>
+            </span>
+          </div>
+          <div className="resource-detail-meta-item">
+            <strong>Date Published</strong>
+            <span>{resource.createdAt ? new Date(resource.createdAt).toLocaleDateString() : 'Recent'}</span>
+          </div>
+          <div className="resource-detail-meta-item">
+            <strong>Rating</strong>
+            <span>
+              {resource.ratingCount ? (
+                <>⭐ {resource.averageRating.toFixed(1)} ({resource.ratingCount} reviews)</>
+              ) : (
+                'Not rated yet'
+              )}
+            </span>
+          </div>
+          <div className="resource-detail-meta-item">
+            <strong>Access & Price</strong>
+            <span>
+              {resource.price != null && resource.price > 0 ? (
+                `₹${resource.price} · ${resource.paymentMethod || 'UPI'}`
+              ) : (
+                'Free'
+              )}
+            </span>
+          </div>
+        </div>
+
+        {resource.description && (
+          <div className="resource-detail-desc">
+            {resource.description}
+          </div>
+        )}
+
+        {resource.tags?.length > 0 && (
+          <div className="skill-list" style={{ marginBottom: '14px' }}>
+            {resource.tags.map((tag) => <span key={tag}>{tag}</span>)}
+          </div>
+        )}
+
+        {resource.upiId && (
+          <p className="class-topic-empty" style={{ margin: '0 0 12px 0' }}>
+            UPI ID: <strong>{resource.upiId}</strong> {resource.paymentInst ? `· ${resource.paymentInst}` : ''}
+          </p>
+        )}
+
+        {resource.files?.length > 0 && (
+          <div className="resource-detail-files">
+            <strong>Attached Files</strong>
+            {resource.files.map((file) => (
+              <div key={file.id} className="resource-detail-file-card">
+                <div>
+                  <strong>{file.fileName || 'Attachment'}</strong>
+                  {file.fileSize && <small style={{ display: 'block', color: '#64748b' }}>{(file.fileSize / (1024 * 1024)).toFixed(2)} MB</small>}
+                </div>
+                <button
+                  type="button"
+                  className="button primary"
+                  onClick={() => onOpenFile(resource.id, file.id)}
+                >
+                  <Download size={14} /> Open / Download
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="modal-actions" style={{ marginTop: '16px' }}>
+          <button
+            type="button"
+            className="button secondary"
+            onClick={() => onToggleSave(resource.id)}
+          >
+            <Bookmark size={14} /> {resource.savedByUser ? 'Unsave' : 'Save resource'}
+          </button>
+          {!isOwner && !isPrivate && (
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() => { onClose(); onRate(resource) }}
+            >
+              <Star size={14} /> Rate
+            </button>
+          )}
+          {!isOwner && !isPrivate && (
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() => { onClose(); onReport(resource.id) }}
+            >
+              Report
+            </button>
+          )}
+          <button type="button" className="button primary" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
 }
 
 export default App

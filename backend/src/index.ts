@@ -276,7 +276,13 @@ app.get('/api/v1/studyos/public-profile/:userId', requireAuth, async (req, res) 
         name: true,
         avatarUrl: true,
         academicIdentity: {
-          select: { degree: true, stream: true, branch: true, specialization: true, institution: true, year: true, semester: true, session: true, github: true, linkedin: true, portfolio: true },
+          select: {
+            degree: true, stream: true, branch: true, specialization: true,
+            institution: true, year: true, semester: true, session: true,
+            github: true, linkedin: true, portfolio: true,
+            bio: true, residency: true, rollNumber: true, department: true, section: true,
+            skills: true, experience: true,
+          },
         },
         skills: { select: { proficiency: true, experience: true, portfolioUrl: true, skill: { select: { id: true, name: true } } } },
       },
@@ -334,6 +340,13 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
         github: optionalUrl('github'),
         linkedin: optionalUrl('linkedin'),
         portfolio: optionalUrl('portfolio'),
+        bio: optionalText('bio', 2000),
+        residency: optionalText('residency', 40),
+        rollNumber: optionalText('rollNumber', 80),
+        department: optionalText('department', 120),
+        section: optionalText('section', 80),
+        skills: optionalText('skills', 1000),
+        experience: optionalText('experience', 2000),
       };
     } catch (error) {
       return res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid profile data' });
@@ -347,12 +360,30 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
         where: { id: userId },
         data: { name: input.name, avatarUrl: input.avatarUrl },
       });
-      if (input.name) {
-        await transaction.profile.updateMany({
-          where: { userId },
-          data: { fullName: input.name, avatarUrl: input.avatarUrl || null },
-        });
-      }
+      await transaction.profile.upsert({
+        where: { userId },
+        update: {
+          fullName: input.name,
+          avatarUrl: input.avatarUrl || null,
+          department: input.department,
+          section: input.section,
+          rollNumber: input.rollNumber,
+          semester: input.semester,
+          bio: input.bio,
+          residency: input.residency,
+        },
+        create: {
+          userId,
+          fullName: input.name || user.name,
+          avatarUrl: input.avatarUrl || null,
+          department: input.department ?? null,
+          section: input.section ?? null,
+          rollNumber: input.rollNumber ?? null,
+          semester: input.semester ?? null,
+          bio: input.bio ?? null,
+          residency: input.residency ?? 'DAY_SCHOLAR',
+        },
+      });
       const academicIdentity = await transaction.academicIdentity.upsert({
         where: { userId },
         update: {
@@ -367,6 +398,13 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
           github: input.github,
           linkedin: input.linkedin,
           portfolio: input.portfolio,
+          bio: input.bio,
+          residency: input.residency,
+          rollNumber: input.rollNumber,
+          department: input.department,
+          section: input.section,
+          skills: input.skills,
+          experience: input.experience,
           isPublic: body.isPublic,
         },
         create: {
@@ -382,6 +420,13 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
           github: input.github ?? null,
           linkedin: input.linkedin ?? null,
           portfolio: input.portfolio ?? null,
+          bio: input.bio ?? null,
+          residency: input.residency ?? 'DAY_SCHOLAR',
+          rollNumber: input.rollNumber ?? null,
+          department: input.department ?? null,
+          section: input.section ?? null,
+          skills: input.skills ?? null,
+          experience: input.experience ?? null,
           isPublic: body.isPublic ?? false,
         },
       });

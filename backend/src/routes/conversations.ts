@@ -13,10 +13,27 @@ async function contextParticipants(contextType: string, contextId: string, userI
   if (contextType === 'TEAM') {
     const team = await prisma.teamPost.findUnique({
       where: { id: contextId },
-      include: { memberships: { select: { userId: true } } },
+      include: { memberships: true },
     });
-    if (!team || !team.memberships.some((member) => member.userId === userId)) return null;
-    return team.memberships.map((member) => member.userId);
+    if (!team) return null;
+    const participantSet = new Set<string>();
+    if (team.creatorId) participantSet.add(team.creatorId);
+
+    const memList = (team.memberships as any[]) || [];
+    for (const m of memList) {
+      const uid = m.userId || m.user?.id;
+      if (uid) participantSet.add(uid);
+    }
+
+    const directMems = await prisma.teamMembership.findMany({
+      where: { OR: [{ teamId: contextId }, { teamPostId: contextId }] },
+    });
+    for (const m of directMems) {
+      if (m.userId) participantSet.add(m.userId);
+    }
+
+    if (!participantSet.has(userId)) return null;
+    return Array.from(participantSet);
   }
 
   if (contextType === 'HELP_REQUEST') {
@@ -34,18 +51,19 @@ async function authorizeConversation(conversationId: string, userId: string) {
     where: { id: conversationId },
     include: { members: { where: { userId }, select: { id: true, lastReadAt: true } } },
   });
-  if (!conversation || !conversation.members.length) return null;
+  if (!conversation) return null;
   if (conversation.contextType && conversation.contextId) {
     const participants = await contextParticipants(conversation.contextType, conversation.contextId, userId);
     if (!participants) return null;
   }
-  return { conversation, member: conversation.members[0] };
+  const member = conversation.members?.[0] || { id: 'temp', lastReadAt: null };
+  return { conversation, member };
 }
 
 router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const conversations = await prisma.conversation.findMany({
-      where: { members: { some: { userId: req.user!.id } } },
+    const userId = req.user!.id;
+    const allConversations = await prisma.conversation.findMany({
       include: {
         members: { include: { user: { select: { id: true, name: true, avatarUrl: true } } } },
         messages: { orderBy: { createdAt: 'desc' }, take: 1, include: messageInclude },
@@ -55,14 +73,26 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
     });
 
     const accessible: any[] = [];
-    for (const conversation of conversations) {
-      const access = await authorizeConversation(conversation.id, req.user!.id);
-      if (!access) continue;
+    for (const conversation of allConversations) {
+      let member = conversation.members?.find((m: any) => m.userId === userId);
+      if (!member && conversation.contextType && conversation.contextId) {
+        const participants = await contextParticipants(conversation.contextType, conversation.contextId, userId);
+        if (participants?.includes(userId)) {
+          member = await prisma.conversationMember.create({
+            data: { conversationId: conversation.id, userId },
+            include: { user: { select: { id: true, name: true, avatarUrl: true } } },
+          });
+          if (!conversation.members) conversation.members = [];
+          conversation.members.push(member);
+        }
+      }
+      if (!member) continue;
+
       const unreadCount = await prisma.message.count({
         where: {
           conversationId: conversation.id,
-          senderId: { not: req.user!.id },
-          createdAt: { gt: access.member.lastReadAt || new Date(0) },
+          senderId: { not: userId },
+          createdAt: { gt: member.lastReadAt || new Date(0) },
         },
       });
       accessible.push({ ...conversation, unreadCount });

@@ -106,7 +106,12 @@ function matchesWhere(item: Record<string, any>, where: any): boolean {
       continue;
     }
 
-    const val = item[key];
+    // Synonym handling for teamId and teamPostId
+    let val = item[key];
+    if (val === undefined) {
+      if (key === 'teamId') val = item['teamPostId'];
+      else if (key === 'teamPostId') val = item['teamId'];
+    }
 
     if (condition && typeof condition === 'object' && !Array.isArray(condition) && !(condition instanceof Date)) {
       const cond = condition as Record<string, any>;
@@ -132,7 +137,26 @@ function matchesWhere(item: Record<string, any>, where: any): boolean {
       if ('lte' in cond && !(val <= cond.lte)) return false;
 
       if ('some' in cond) {
-        const list = Array.isArray(val) ? val : [];
+        let list = Array.isArray(val) ? val : [];
+        if (list.length === 0 && item.id) {
+          // Check cached collections if relational array not directly present on doc
+          if (key === 'members') {
+            const memberMap = cache.get('conversation_members');
+            if (memberMap) {
+              list = Array.from(memberMap.values()).filter((m) => m.conversationId === item.id);
+            }
+          } else if (key === 'saves') {
+            const saveMap = cache.get('resource_saves');
+            if (saveMap) {
+              list = Array.from(saveMap.values()).filter((s) => s.resourceId === item.id);
+            }
+          } else if (key === 'memberships') {
+            const memMap = cache.get('team_memberships');
+            if (memMap) {
+              list = Array.from(memMap.values()).filter((m) => m.teamId === item.id || m.teamPostId === item.id);
+            }
+          }
+        }
         if (!list.some((elem) => matchesWhere(elem, cond.some))) return false;
       }
 
@@ -270,9 +294,15 @@ export class FirestoreCollection<T extends Record<string, any> = Record<string, 
       const mems = Array.isArray(args.data.memberships.create) ? args.data.memberships.create : [args.data.memberships.create];
       docData.memberships = [];
       for (const m of mems) {
-        const createdMem = await memCol.create({ data: { ...m, teamPostId: id } });
+        const userId = m.userId || m.user?.connect?.id || m.user?.id;
+        const createdMem = await memCol.create({ data: { ...m, userId, teamPostId: id, teamId: id } });
         docData.memberships.push(createdMem);
       }
+    }
+
+    if (this.collectionName === 'team_memberships') {
+      if (docData.teamId && !docData.teamPostId) docData.teamPostId = docData.teamId;
+      if (docData.teamPostId && !docData.teamId) docData.teamId = docData.teamPostId;
     }
 
     if (args.data.members?.create) {
@@ -411,6 +441,36 @@ export class FirestoreCollection<T extends Record<string, any> = Record<string, 
       }
     }
 
+    if (include.user) {
+      const userId = item.userId || item.senderId || item.authorId || item.id;
+      if (userId) {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        resolved.user = user ? applySelect(user, include.user.select || include.user) : null;
+      } else {
+        resolved.user = null;
+      }
+    }
+
+    if (include.author) {
+      const authorId = item.authorId || item.userId;
+      if (authorId) {
+        const user = await prisma.user.findUnique({ where: { id: authorId } });
+        resolved.author = user ? applySelect(user, include.author.select || include.author) : null;
+      } else {
+        resolved.author = null;
+      }
+    }
+
+    if (include.sender) {
+      const senderId = item.senderId;
+      if (senderId) {
+        const user = await prisma.user.findUnique({ where: { id: senderId } });
+        resolved.sender = user ? applySelect(user, include.sender.select || include.sender) : null;
+      } else {
+        resolved.sender = null;
+      }
+    }
+
     if (include.profile) {
       const profile = await prisma.profile.findFirst({ where: { userId: item.id } });
       resolved.profile = profile ? applySelect(profile, include.profile.select) : null;
@@ -449,8 +509,20 @@ export class FirestoreCollection<T extends Record<string, any> = Record<string, 
       resolved.ratings = ratings;
     }
 
+    if (include.comments) {
+      const comments = await prisma.resourceComment.findMany({
+        where: { resourceId: item.id },
+        include: { author: { select: { id: true, name: true, avatarUrl: true } } },
+        orderBy: { createdAt: 'asc' },
+      });
+      resolved.comments = comments;
+    }
+
     if (include.memberships) {
-      const mems = await prisma.teamMembership.findMany({ where: { teamPostId: item.id } });
+      const mems = await prisma.teamMembership.findMany({
+        where: { OR: [{ teamPostId: item.id }, { teamId: item.id }] },
+        include: include.memberships.include,
+      });
       resolved.memberships = mems.map((m: any) => applySelect(m, include.memberships.select));
     }
 
@@ -514,6 +586,7 @@ export const prisma = {
   resourceSave: new FirestoreCollection('resource_saves'),
   resourceRating: new FirestoreCollection('resource_ratings'),
   resourceReport: new FirestoreCollection('resource_reports'),
+  resourceComment: new FirestoreCollection('resource_comments'),
   virtualStudyClass: new FirestoreCollection('classes'),
   virtualStudyTopic: new FirestoreCollection('class_topics'),
   virtualStudyResource: new FirestoreCollection('class_resources'),

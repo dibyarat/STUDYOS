@@ -150,9 +150,6 @@ router.post('/:id/save', requireAuth, async (req: AuthenticatedRequest, res) => 
     if (resource.visibility !== 'PUBLIC' && resource.creatorId !== req.user!.id) {
       return res.status(403).json({ error: 'This resource is private' });
     }
-    if (resource.creatorId === req.user!.id) {
-      return res.status(403).json({ error: 'You cannot rate your own resource' });
-    }
 
     const saved = await prisma.resourceSave.upsert({
       where: {
@@ -171,6 +168,129 @@ router.post('/:id/save', requireAuth, async (req: AuthenticatedRequest, res) => 
     res.status(201).json({ saved, savedByUser: true });
   } catch (error) {
     console.error('Failed to save resource:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/:id/comments', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    if (!id) return res.status(400).json({ error: 'Missing resource id' });
+
+    const resource = await prisma.resource.findUnique({ where: { id } });
+    if (!resource) return res.status(404).json({ error: 'Resource not found' });
+    if (resource.visibility !== 'PUBLIC' && resource.creatorId !== req.user!.id) {
+      return res.status(403).json({ error: 'This resource is private' });
+    }
+
+    const comments = await prisma.resourceComment.findMany({
+      where: { resourceId: id },
+      include: { author: { select: { id: true, name: true, avatarUrl: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    res.json({ comments });
+  } catch (error) {
+    console.error('Failed to list resource comments:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/:id/comments', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    if (!id) return res.status(400).json({ error: 'Missing resource id' });
+
+    const content = String(req.body?.content || '').trim();
+    if (!content) return res.status(400).json({ error: 'Comment content is required' });
+    if (content.length > 2000) return res.status(400).json({ error: 'Comment must be 2000 characters or fewer' });
+
+    const resource = await prisma.resource.findUnique({ where: { id } });
+    if (!resource) return res.status(404).json({ error: 'Resource not found' });
+    if (resource.visibility !== 'PUBLIC' && resource.creatorId !== req.user!.id) {
+      return res.status(403).json({ error: 'This resource is private' });
+    }
+
+    const comment = await prisma.resourceComment.create({
+      data: {
+        resourceId: id,
+        authorId: req.user!.id,
+        content,
+      },
+      include: {
+        author: { select: { id: true, name: true, avatarUrl: true } },
+      },
+    });
+
+    if (resource.creatorId !== req.user!.id) {
+      await prisma.notification.create({
+        data: {
+          recipientId: resource.creatorId,
+          type: 'RESOURCE_COMMENT',
+          title: 'New discussion comment',
+          message: `A student commented on "${resource.title}".`,
+          relatedEntityType: 'RESOURCE',
+          relatedEntityId: id,
+        },
+      }).catch(() => null);
+    }
+
+    res.status(201).json({ comment });
+  } catch (error) {
+    console.error('Failed to create resource comment:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.put('/:id/comments/:commentId', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const commentId = Array.isArray(req.params.commentId) ? req.params.commentId[0] : req.params.commentId;
+    if (!id || !commentId) return res.status(400).json({ error: 'Missing parameters' });
+
+    const content = String(req.body?.content || '').trim();
+    if (!content) return res.status(400).json({ error: 'Comment content is required' });
+    if (content.length > 2000) return res.status(400).json({ error: 'Comment must be 2000 characters or fewer' });
+
+    const existing = await prisma.resourceComment.findUnique({ where: { id: commentId } });
+    if (!existing || existing.resourceId !== id) return res.status(404).json({ error: 'Comment not found' });
+    if (existing.authorId !== req.user!.id) return res.status(403).json({ error: 'You can only edit your own comments' });
+
+    const updated = await prisma.resourceComment.update({
+      where: { id: commentId },
+      data: { content },
+      include: {
+        author: { select: { id: true, name: true, avatarUrl: true } },
+      },
+    });
+
+    res.json({ comment: updated });
+  } catch (error) {
+    console.error('Failed to update comment:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.delete('/:id/comments/:commentId', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const commentId = Array.isArray(req.params.commentId) ? req.params.commentId[0] : req.params.commentId;
+    if (!id || !commentId) return res.status(400).json({ error: 'Missing parameters' });
+
+    const resource = await prisma.resource.findUnique({ where: { id } });
+    const existing = await prisma.resourceComment.findUnique({ where: { id: commentId } });
+    if (!existing || existing.resourceId !== id) return res.status(404).json({ error: 'Comment not found' });
+
+    const isAuthor = existing.authorId === req.user!.id;
+    const isResourceOwner = resource?.creatorId === req.user!.id;
+    if (!isAuthor && !isResourceOwner) {
+      return res.status(403).json({ error: 'You are not authorized to delete this comment' });
+    }
+
+    await prisma.resourceComment.delete({ where: { id: commentId } });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete comment:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
