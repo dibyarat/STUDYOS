@@ -9,6 +9,7 @@ import {
   BriefcaseBusiness,
   BookOpen,
   Bookmark,
+  Calendar,
   ChevronDown,
   ChevronUp,
   Clock3,
@@ -50,11 +51,18 @@ import './StudyOS-messages.css'
 import './StudyOS-projects.css'
 import './StudyOS-final.css'
 import './StudyOS-polish.css'
+import './StudyOS-timetable-attendance.css'
+import TimetablePage from './timetable/TimetablePage.jsx'
+import AttendancePage from './attendance/AttendancePage.jsx'
+import DashboardAttendanceWidget from './attendance/DashboardAttendanceWidget.jsx'
+import AcademicOnboardingModal from './auth/AcademicOnboardingModal.jsx'
 import studyosMark from './assets/studyos-mark.png'
 import campassistIcon from './assets/campassist-icon.png'
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, key: 'dashboard' },
+  { label: 'Timetable', icon: Calendar, key: 'timetable' },
+  { label: 'Attendance', icon: Clock3, key: 'attendance' },
   { label: 'Virtual Study Classes', icon: BookOpen, key: 'classes' },
   { label: 'Study Notes Vault', icon: Library, key: 'vault' },
   { label: 'Projects & Lab Repository', icon: FolderKanban, key: 'projects' },
@@ -106,14 +114,27 @@ const normalizeProject = (project) => ({
 })
 
 function App() {
-  const { user, profile, session, signOut, resendVerification } = useAuth()
+  const { user, profile, session, signOut, resendVerification, reloadProfile } = useAuth()
   const [activePage, setActivePage] = useState('dashboard')
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false)
+  const onboardingCheckedRef = useRef(false)
 
   useEffect(() => {
     if (activePage) {
       trackPageView(activePage)
     }
   }, [activePage])
+
+  useEffect(() => {
+    if (user && profile && !onboardingCheckedRef.current) {
+      onboardingCheckedRef.current = true
+      const hasSection = Boolean(profile.academicIdentity?.section || profile.profile?.section)
+      const hasDept = Boolean(profile.academicIdentity?.branch || profile.profile?.department)
+      if (!hasSection || !hasDept) {
+        setShowOnboardingModal(true)
+      }
+    }
+  }, [user, profile])
 
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -1775,7 +1796,9 @@ function App() {
           {initialLoading && <div className="data-load-loading" role="status">Loading your StudyOS workspace…</div>}
           {notificationsError && <div className={`data-load-warning ${sessionExpired ? 'session-expired' : ''}`} role="alert">{notificationsError}{sessionExpired ? <button className="button secondary" onClick={signOut}>Sign out</button> : <button className="button ghost" disabled={retryingSection === 'notifications'} onClick={() => { setRetryingSection('notifications'); refreshNotifications().finally(() => setRetryingSection('')) }}>{retryingSection === 'notifications' ? 'Retrying…' : 'Retry notifications'}</button>}</div>}
           {dataLoadError && ['teams', 'skills', 'projects'].includes(activePage) && <div className="data-load-warning" role="alert">{dataLoadError} <button className="button ghost" disabled={retryingSection === activePage} onClick={() => retryLoad(activePage)}>{retryingSection === activePage ? 'Retrying…' : 'Retry'}</button></div>}
-          {activePage === 'dashboard' && <Dashboard classes={classes} resources={filteredResources} teamPostCount={teamPostCount} helpServiceCount={helpServiceCount} onAddResource={() => { setResourceSaveError(''); setShowResourceModal(true) }} onAddClass={() => setShowClassModal(true)} onNavigate={go} userName={userName} currentUserId={user?.id} resourcesError={resourcesError} classesError={classesError} summaryError={summaryError} onRetry={retryLoad} retryingSection={retryingSection} />}
+          {activePage === 'dashboard' && <Dashboard classes={classes} resources={filteredResources} teamPostCount={teamPostCount} helpServiceCount={helpServiceCount} onAddResource={() => { setResourceSaveError(''); setShowResourceModal(true) }} onAddClass={() => setShowClassModal(true)} onNavigate={go} userName={userName} currentUserId={user?.id} token={session?.access_token} resourcesError={resourcesError} classesError={classesError} summaryError={summaryError} onRetry={retryLoad} retryingSection={retryingSection} />}
+          {activePage === 'timetable' && <TimetablePage user={user} profile={profile} token={session?.access_token} onNavigateToAttendance={() => go('attendance')} />}
+          {activePage === 'attendance' && <AttendancePage user={user} profile={profile} token={session?.access_token} onNavigateToTimetable={() => go('timetable')} />}
           {activePage === 'vault' && <Vault resources={filteredResources} search={vaultSearch} onSearch={(value) => { setVaultSearch(value); }} onAdd={() => { setResourceSaveError(''); setShowResourceModal(true) }} onDelete={deleteResource} onEdit={(item) => { setEditingResource(item); setResourceEditPaid(item.price != null) }} onUnpublish={unpublishResource} onToggleSave={toggleResourceSave} onReport={(id) => { setReportDialog(resources.find((item) => item.id === id) || null); setReportError('') }} onOpenFile={openResourceFile} onRate={(item) => { setRateError(''); setRateDialog(item) }} onViewDetail={(item) => setDetailResource(item)} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }} onNotice={setActionNotice} currentUserId={user?.id} token={session?.access_token} />}
           {activePage === 'classes' && <Classes classes={classes} currentUserId={user?.id} onAdd={() => { setEditingClass(null); setShowClassModal(true) }} onEdit={(item) => { setEditingClass(item); setShowClassModal(true) }} onDelete={deleteClass} onPublish={(item) => { setPublishDialog(item); setPublishMode('CLASS'); setPublishPaid(false); setPublishError('') }} expandedClassId={expandedClassId} onToggleExpanded={(id) => setExpandedClassId((current) => current === id ? null : id)} onAddTopic={(classId) => setTopicDialog({ classId, topic: null })} onEditTopic={(classId, topic) => setTopicDialog({ classId, topic })} onDeleteTopic={deleteTopic} onMoveTopic={reorderTopic} onAddMaterial={(classId, topicId) => { setClassResourceError(''); setClassResourceFileName(''); setResourceKind('RESOURCE'); setResourceDialog({ classId, topicId }) }} onRemoveMaterial={removeClassResource} onOpenFile={openResourceFile} />}
           {activePage === 'teams' && <TeamFinder posts={teamPosts} currentUserId={user?.id} onCreate={() => { setEditingTeam(null); setShowTeamModal(true) }} onEdit={(post) => { setEditingTeam(post); setShowTeamModal(true) }} onDelete={deleteTeam} onJoin={(teamId) => setTeamApplicationDialog(teamPosts.find((post) => post.id === teamId) || null)} onWithdraw={withdrawTeamRequest} onRepost={repostTeam} onManageRequests={openTeamRequests} onOpenConversation={openConversation} myApplications={myApplications} myApplicationsLoading={myApplicationsLoading} onLoadMyApplications={loadMyApplications} showApplications={myApplicationsOpen} onToggleApplications={(show) => { setMyApplicationsOpen(show); if (show) loadMyApplications() }} />}
@@ -1801,6 +1824,20 @@ function App() {
           )}
         </div>
       </main>
+
+      {showOnboardingModal && (
+        <AcademicOnboardingModal
+          isOpen={showOnboardingModal}
+          onClose={() => setShowOnboardingModal(false)}
+          profile={profile}
+          user={user}
+          token={session?.access_token}
+          onSaved={() => {
+            reloadProfile?.()
+            setShowOnboardingModal(false)
+          }}
+        />
+      )}
 
       {showResourceModal && <Modal title="Add a study resource" onClose={() => { if (!resourceSaving) { setResourceSaveError(''); setShowResourceModal(false) } }}><form className="modal-form" onSubmit={createResource}><label>Resource title<input name="title" required placeholder="e.g. Dynamic Programming Notes" /></label><div className="form-row"><label>Resource type<select name="type"><option>NOTE</option><option>PDF</option><option>VIDEO</option><option>LINK</option><option>CODE</option></select></label><label>Subject<input name="subject" placeholder="e.g. DSA" /></label></div><div className="form-row"><label>Topic<input name="topic" placeholder="e.g. Dynamic Programming" /></label><label>Visibility<select name="visibility"><option value="PUBLIC">Public</option><option value="PRIVATE">Private</option></select></label></div><label>Tags<input name="tags" placeholder="DSA, Arrays, Interview Prep" /></label><label>Upload file<input name="file" type="file" accept=".pdf,.doc,.docx,.txt,.md,.zip,.png,.jpg,.jpeg,.webp,.mp4" style={{ padding: '0.5rem', border: '1px dashed #cbd5e1', borderRadius: '0.5rem', width: '100%', background: '#f8fafc', cursor: 'pointer', marginTop: '4px' }} /></label><label>Description<textarea name="description" placeholder="What will other students learn from this?" /></label>{resourceSaveError && <p role="alert" className="class-topic-empty">{resourceSaveError}</p>}<div className="modal-actions"><button type="button" className="button secondary" disabled={resourceSaving} onClick={() => { setResourceSaveError(''); setShowResourceModal(false) }}>Cancel</button><button className="button primary" type="submit" disabled={resourceSaving}><Plus size={16} /> {resourceSaving ? 'Adding…' : 'Add resource'}</button></div></form></Modal>}
       {publishDialog && (
@@ -2190,7 +2227,7 @@ function PublicProfile({ profileId, token, onBack }) {
   )
 }
 
-function Dashboard({ classes, resources, teamPostCount, helpServiceCount, onAddResource, onAddClass, onNavigate, userName, currentUserId, resourcesError, classesError, summaryError, onRetry, retryingSection }) {
+function Dashboard({ classes, resources, teamPostCount, helpServiceCount, onAddResource, onAddClass, onNavigate, userName, currentUserId, token, resourcesError, classesError, summaryError, onRetry, retryingSection }) {
   const [now, setNow] = useState(null)
   const myResourceCount = resources.filter((item) => item.creatorId === currentUserId || item.creator?.id === currentUserId).length
   const savedCount = resources.filter((item) => item.savedByUser).length
@@ -2209,6 +2246,12 @@ function Dashboard({ classes, resources, teamPostCount, helpServiceCount, onAddR
       <div className="data-load-warning" style={{marginBottom: 16}} role="alert">{summaryError} <button className="button ghost" disabled={retryingSection === 'summary'} onClick={() => onRetry('summary')}>{retryingSection === 'summary' ? 'Retrying…' : 'Retry'}</button></div>
     ) : (
       <div className="stat-grid"><Stat label="My Classes" value={`${classCount} / 10`} icon={BookOpen} tone="green" /><Stat label="Saved Resources" value={String(savedCount)} icon={Bookmark} tone="blue" /><Stat label="My Contributions" value={String(myResourceCount)} icon={Star} tone="yellow" /><Stat label="Open Teams" value={String(teamPostCount)} icon={UsersRound} tone="pink" /><Stat label="Help Services" value={String(helpServiceCount)} icon={MessageSquare} tone="mint" /></div>
+    )}
+
+    {token && (
+      <div style={{ margin: '16px 0' }}>
+        <DashboardAttendanceWidget token={token} onNavigate={onNavigate} />
+      </div>
     )}
     
     <section className="section-card classes-section">
@@ -3031,8 +3074,10 @@ function AccountSettings() {
     department: campusProfile?.department || student?.section?.department?.name || identity.branch || '',
     institution: campusProfile?.institution || identity.institution || institution.name || institution.code || '',
     semester: campusProfile?.semester || student?.semester || identity.semester || '',
-    year: campusProfile?.year || identity.year || '',
+    year: campusProfile?.year || identity.year || '3rd Year',
     residency: campusProfile?.residency || 'DAY_SCHOLAR',
+    gender: campusProfile?.gender || identity.gender || 'Prefer not to say',
+    tonePreference: identity.tonePreference || 'buddy',
     bio: campusProfile?.bio || '',
     skills: campusProfile?.skills || (Array.isArray(globalProfile?.skills) ? globalProfile.skills.map((s) => s.name).join(', ') : '') || '',
     experience: campusProfile?.experience || '',
@@ -3055,8 +3100,10 @@ function AccountSettings() {
       department: cp.department || st.section?.department?.name || ident.branch || '',
       institution: cp.institution || ident.institution || inst.name || inst.code || '',
       semester: cp.semester || st.semester || ident.semester || '',
-      year: cp.year || ident.year || '',
+      year: cp.year || ident.year || '3rd Year',
       residency: cp.residency || 'DAY_SCHOLAR',
+      gender: cp.gender || ident.gender || 'Prefer not to say',
+      tonePreference: ident.tonePreference || 'buddy',
       bio: cp.bio || '',
       skills: cp.skills || (Array.isArray(globalProfile?.skills) ? globalProfile.skills.map((s) => s.name).join(', ') : '') || '',
       experience: cp.experience || '',
@@ -3179,19 +3226,48 @@ function AccountSettings() {
               />
             </label>
             <label>
-              Semester / Year
-              <input
-                name="semester"
-                value={profile.semester}
-                onChange={update}
-                placeholder="e.g. 6th Semester"
-              />
+              Current Semester
+              <select name="semester" value={profile.semester || '6'} onChange={update}>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
+                  <option key={s} value={String(s)}>
+                    Semester {s}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Academic Year
+              <select name="year" value={profile.year || '3rd Year'} onChange={update}>
+                <option value="1st Year">1st Year</option>
+                <option value="2nd Year">2nd Year</option>
+                <option value="3rd Year">3rd Year</option>
+                <option value="4th Year">4th Year</option>
+                <option value="5th Year">5th Year</option>
+              </select>
             </label>
             <label>
               Living arrangement
               <select name="residency" value={profile.residency || 'DAY_SCHOLAR'} onChange={update}>
-                <option value="DAY_SCHOLAR">Day Scholar</option>
-                <option value="HOSTELER">Hostel Resident</option>
+                <option value="DAY_SCHOLAR">🎒 Day Scholar</option>
+                <option value="HOSTELER">🏠 Hostel Resident</option>
+              </select>
+            </label>
+            <label>
+              Gender (Optional)
+              <select name="gender" value={profile.gender || 'Prefer not to say'} onChange={update}>
+                <option value="Prefer not to say">Prefer not to say</option>
+                <option value="Boy">Boy</option>
+                <option value="Girl">Girl</option>
+                <option value="Another identity">Another identity</option>
+              </select>
+            </label>
+            <label>
+              Message Tone Preference
+              <select name="tonePreference" value={profile.tonePreference || 'buddy'} onChange={update}>
+                <option value="buddy">Buddy (Friendly & encouraging)</option>
+                <option value="bro">Bro (Casual hustle: "You're golden bro!")</option>
+                <option value="baddie">Baddie (Empowering: "Slaying baddie!")</option>
+                <option value="neutral">Neutral (Formal)</option>
               </select>
             </label>
             <label className="account-field-full">

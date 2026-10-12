@@ -739,6 +739,13 @@ export const prisma = {
   conversation: new FirestoreCollection('conversations'),
   conversationMember: new FirestoreCollection('conversation_members'),
   message: new FirestoreCollection('messages'),
+  timetable: new FirestoreCollection('timetable'),
+  attendance: new FirestoreCollection('attendance'),
+  attendanceRecord: new FirestoreCollection('attendance_records'),
+  attendanceRegister: new FirestoreCollection('attendance_registers'),
+  holiday: new FirestoreCollection('holidays'),
+  section: new FirestoreCollection('sections'),
+  subject: new FirestoreCollection('subjects'),
 
   async $transaction<T>(fn: ((tx: any) => Promise<T>) | any[], _options?: any): Promise<T> {
     if (typeof fn === 'function') {

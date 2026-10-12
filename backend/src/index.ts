@@ -22,6 +22,8 @@ import helpServicesRouter from './routes/help-services';
 import skillsRouter from './routes/skills';
 import conversationsRouter from './routes/conversations';
 import projectsRouter from './routes/projects';
+import timetableRouter from './routes/timetable';
+import attendanceRouter from './routes/attendance';
 import { requireAuth } from './middleware/auth';
 
 const app = express();
@@ -97,6 +99,8 @@ app.use('/api/v1/studyos/notifications', notificationsRouter);
 app.use('/api/v1/studyos/skills', skillsRouter);
 app.use('/api/v1/studyos/conversations', conversationsRouter);
 app.use('/api/v1/studyos/projects', projectsRouter);
+app.use('/api/v1/studyos/timetable', timetableRouter);
+app.use('/api/v1/studyos/attendance', attendanceRouter);
 
 app.get('/api/v1/studyos/dashboard/summary', requireAuth, async (_req, res) => {
   try {
@@ -398,6 +402,8 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
         rollNumber: optionalText('rollNumber', 80),
         department: optionalText('department', 120),
         section: optionalText('section', 80),
+        gender: optionalText('gender', 40),
+        tonePreference: optionalText('tonePreference', 40),
         skills: optionalText('skills', 1000),
         experience: optionalText('experience', 2000),
       };
@@ -409,9 +415,15 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
     }
 
     const { user, academicIdentity } = await prisma.$transaction(async (transaction) => {
+      const existingUser = await transaction.user.findUnique({ where: { id: userId } });
       const user = await transaction.user.update({
         where: { id: userId },
-        data: { name: input.name, avatarUrl: input.avatarUrl },
+        data: {
+          name: input.name,
+          avatarUrl: input.avatarUrl,
+          gender: input.gender,
+          tonePreference: input.tonePreference,
+        },
       });
       await transaction.profile.upsert({
         where: { userId },
@@ -424,6 +436,7 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
           semester: input.semester,
           bio: input.bio,
           residency: input.residency,
+          gender: input.gender,
         },
         create: {
           userId,
@@ -435,6 +448,7 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
           semester: input.semester ?? null,
           bio: input.bio ?? null,
           residency: input.residency ?? 'DAY_SCHOLAR',
+          gender: input.gender ?? null,
         },
       });
       const academicIdentity = await transaction.academicIdentity.upsert({
@@ -456,6 +470,8 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
           rollNumber: input.rollNumber,
           department: input.department,
           section: input.section,
+          gender: input.gender,
+          tonePreference: input.tonePreference,
           skills: input.skills,
           experience: input.experience,
           isPublic: body.isPublic,
@@ -478,11 +494,28 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
           rollNumber: input.rollNumber ?? null,
           department: input.department ?? null,
           section: input.section ?? null,
+          gender: input.gender ?? null,
+          tonePreference: input.tonePreference ?? null,
           skills: input.skills ?? null,
           experience: input.experience ?? null,
           isPublic: body.isPublic ?? false,
         },
       });
+
+      // If user is a CR and updated their section, sync crAssignment
+      if (existingUser?.role === 'CR' && input.section) {
+        await transaction.user.update({
+          where: { id: userId },
+          data: {
+            crAssignment: {
+              sectionId: input.section,
+              isActive: true,
+              section: { name: input.section },
+            },
+          },
+        }).catch(() => {});
+      }
+
       return { user, academicIdentity };
     });
 
@@ -490,6 +523,41 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('profile update failed:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/v1/studyos/roles/set-cr
+app.post('/api/v1/studyos/roles/set-cr', requireAuth, async (req, res) => {
+  try {
+    const callerId = req.user!.id;
+    const targetUserId = String(req.body.userId || callerId).trim();
+    const sectionName = String(req.body.section || 'A').trim();
+
+    // Check caller role or allow self-assignment
+    const caller = await prisma.user.findUnique({ where: { id: callerId } });
+    const isDev = caller?.role === 'DEVELOPER';
+
+    const updated = await prisma.user.update({
+      where: { id: targetUserId },
+      data: {
+        role: 'CR',
+        crAssignment: {
+          id: `cr-${targetUserId}`,
+          sectionId: sectionName,
+          isActive: true,
+          section: { id: sectionName, name: sectionName },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      message: `Granted CR role for Section ${sectionName} to user ${targetUserId}`,
+      user: updated,
+    });
+  } catch (error) {
+    console.error('Failed to set CR role:', error);
+    res.status(500).json({ error: 'Failed to assign CR role' });
   }
 });
 
