@@ -28,5 +28,8 @@
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",
     "typescript": "^5.9.2"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.6"
   }
 }
