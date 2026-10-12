@@ -77,8 +77,20 @@ function getTeamRoles(value: Prisma.JsonValue | null): TeamRole[] {
   });
 }
 
-function effectiveDeadline(team: { deadline: Date | null; createdAt: Date }): Date {
-  return team.deadline || new Date(team.createdAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+function toDate(val: unknown): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+  if (typeof (val as any).toDate === 'function') return (val as any).toDate();
+  if (typeof (val as any)._seconds === 'number') return new Date((val as any)._seconds * 1000);
+  const d = new Date(String(val));
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function effectiveDeadline(team: { deadline?: any; createdAt?: any }): Date {
+  const d = toDate(team.deadline);
+  if (d) return d;
+  const c = toDate(team.createdAt) || new Date();
+  return new Date(c.getTime() + 7 * 24 * 60 * 60 * 1000);
 }
 
 function parseApplication(body: Record<string, unknown>, roles: TeamRole[]): { role: string; data: Record<string, string> } {

@@ -3687,15 +3687,6 @@ function AccountSettings() {
                 <option value="Another identity">Another identity</option>
               </select>
             </label>
-            <label>
-              Message Tone Preference
-              <select name="tonePreference" value={profile.tonePreference || 'buddy'} onChange={update}>
-                <option value="buddy">Buddy (Friendly & encouraging)</option>
-                <option value="bro">Bro (Casual hustle: "You're golden bro!")</option>
-                <option value="baddie">Baddie (Empowering: "Slaying baddie!")</option>
-                <option value="neutral">Neutral (Formal)</option>
-              </select>
-            </label>
             <label className="account-field-full">
               Short bio
               <textarea

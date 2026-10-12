@@ -326,19 +326,6 @@ export default function AcademicOnboardingModal({
             </label>
           </div>
 
-          <label>
-            Personalized Tone Preference
-            <select name="tonePreference" value={formData.tonePreference} onChange={handleChange}>
-              <option value="buddy">Buddy (Friendly & encouraging: "Keep going buddy!")</option>
-              <option value="bro">Bro (Hustle & casual: "You're golden bro!")</option>
-              <option value="baddie">Baddie (Empowering & sharp: "Slaying baddie!")</option>
-              <option value="neutral">Neutral (Formal & informative)</option>
-            </select>
-            <small style={{ color: '#64748b' }}>
-              Used in friendly study reminders and peer collaboration.
-            </small>
-          </label>
-
           <div className="modal-actions" style={{ marginTop: '1rem' }}>
             <button
               type="button"
