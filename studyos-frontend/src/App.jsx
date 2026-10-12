@@ -122,8 +122,30 @@ function App() {
   useEffect(() => {
     if (user && profile && !onboardingCheckedRef.current) {
       onboardingCheckedRef.current = true
-      const hasSection = Boolean(profile.academicIdentity?.section || profile.profile?.section)
-      const hasDept = Boolean(profile.academicIdentity?.branch || profile.profile?.department)
+      const isCompletedOrDismissed = Boolean(
+        localStorage.getItem(`studyos_onboarding_completed_${user.id}`) ||
+        localStorage.getItem(`studyos_onboarding_dismissed_${user.id}`) ||
+        profile.onboardingCompleted ||
+        profile.academicIdentity?.onboardingCompleted ||
+        profile.profile?.onboardingCompleted
+      )
+      if (isCompletedOrDismissed) {
+        return
+      }
+
+      const hasSection = Boolean(
+        profile.academicIdentity?.section ||
+        profile.profile?.section ||
+        profile.section ||
+        profile.student?.section?.name
+      )
+      const hasDept = Boolean(
+        profile.academicIdentity?.branch ||
+        profile.academicIdentity?.department ||
+        profile.profile?.department ||
+        profile.department ||
+        profile.student?.section?.department?.name
+      )
       if (!hasSection || !hasDept) {
         setShowOnboardingModal(true)
       }
@@ -1921,11 +1943,28 @@ function App() {
       {showOnboardingModal && (
         <AcademicOnboardingModal
           isOpen={showOnboardingModal}
-          onClose={() => setShowOnboardingModal(false)}
+          onClose={() => {
+            if (user?.id) {
+              try {
+                localStorage.setItem(`studyos_onboarding_dismissed_${user.id}`, 'true')
+              } catch (e) {
+                console.warn('Storage save error:', e)
+              }
+            }
+            setShowOnboardingModal(false)
+          }}
           profile={profile}
           user={user}
           token={session?.access_token}
           onSaved={() => {
+            if (user?.id) {
+              try {
+                localStorage.setItem(`studyos_onboarding_completed_${user.id}`, 'true')
+                localStorage.setItem(`studyos_onboarding_dismissed_${user.id}`, 'true')
+              } catch (e) {
+                console.warn('Storage save error:', e)
+              }
+            }
             reloadProfile?.()
             setShowOnboardingModal(false)
           }}

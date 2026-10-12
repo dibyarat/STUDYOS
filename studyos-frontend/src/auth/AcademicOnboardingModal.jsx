@@ -83,6 +83,17 @@ export default function AcademicOnboardingModal({
     });
   };
 
+  const handleDismiss = () => {
+    if (user?.id) {
+      try {
+        localStorage.setItem(`studyos_onboarding_dismissed_${user.id}`, 'true');
+      } catch (e) {
+        console.warn('Storage save error:', e);
+      }
+    }
+    onClose();
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!token || !user?.id) return;
@@ -114,6 +125,15 @@ export default function AcademicOnboardingModal({
         },
       });
 
+      if (user?.id) {
+        try {
+          localStorage.setItem(`studyos_onboarding_completed_${user.id}`, 'true');
+          localStorage.setItem(`studyos_onboarding_dismissed_${user.id}`, 'true');
+        } catch (e) {
+          console.warn('Storage save error:', e);
+        }
+      }
+
       if (onSaved) onSaved();
       onClose();
     } catch (err) {
@@ -125,14 +145,14 @@ export default function AcademicOnboardingModal({
   };
 
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && handleDismiss()}>
       <div className="modal" style={{ maxWidth: '640px' }}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <GraduationCap size={22} color="#0284c7" />
             <h2>Academic Profile Setup</h2>
           </div>
-          <button type="button" className="close-button" onClick={onClose}>
+          <button type="button" className="close-button" onClick={handleDismiss}>
             <X size={18} />
           </button>
         </div>
@@ -323,7 +343,7 @@ export default function AcademicOnboardingModal({
             <button
               type="button"
               className="button secondary"
-              onClick={onClose}
+              onClick={handleDismiss}
               disabled={saving}
             >
               Skip for now
