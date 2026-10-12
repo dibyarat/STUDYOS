@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
 import { Prisma, prisma } from '../lib/prisma';
 import { InvalidResourceFileError, uploadResourceFile } from '../lib/storage';
-import { deleteFromCloudinary } from '../lib/cloudinary';
+import { deleteFromCloudinary, buildAttachmentUrl } from '../lib/cloudinary';
 
 const router = Router();
 
@@ -92,7 +92,8 @@ router.get('/:id/files/:fileId/access', requireAuth, async (req: AuthenticatedRe
       return res.status(403).json({ error: 'This resource is private' });
     }
 
-    res.json({ url: file.fileUrl, expiresIn: 300 });
+    const downloadUrl = buildAttachmentUrl(file.fileUrl, file.fileName);
+    res.json({ url: downloadUrl, fileName: file.fileName, expiresIn: 300 });
     return;
   } catch (error) {
     console.error('Failed to create resource file link:', error);

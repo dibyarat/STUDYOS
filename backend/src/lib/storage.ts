@@ -72,8 +72,11 @@ export async function uploadResourceFile(
 ): Promise<UploadedResourceFile> {
   const mimeType = validateResourceFile(file);
 
+  const cleanBase = sanitizeFileName(file.originalname);
   const result = await uploadToCloudinary(file.buffer, {
     folder: `studyos/${userId}/${resourceId}`,
+    public_id: `${Date.now()}_${cleanBase}`,
+    resource_type: 'auto',
   });
 
   return { fileUrl: result.secure_url, fileName: file.originalname, mimeType, fileSize: file.size };

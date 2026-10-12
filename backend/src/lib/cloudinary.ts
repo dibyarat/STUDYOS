@@ -64,3 +64,13 @@ export function deleteFromCloudinary(url: string): Promise<any> {
   });
 }
 
+export function buildAttachmentUrl(url: string, fileName?: string): string {
+  if (!url || !fileName || !url.includes('res.cloudinary.com')) return url;
+  if (url.includes('fl_attachment')) return url;
+  
+  const cleanName = fileName.trim().replace(/[^a-zA-Z0-9._-]/g, '_');
+  if (!cleanName) return url;
+
+  return url.replace('/upload/', `/upload/fl_attachment:${cleanName}/`);
+}
+

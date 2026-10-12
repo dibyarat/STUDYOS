@@ -491,27 +491,43 @@ function App() {
     return title.includes(searchText) || subject.includes(searchText);
   }), [resources, vaultSearch])
 
-  const openResourceFile = async (resourceId, fileId) => {
-    let fileWindow = null
+  const triggerFileDownload = async (url, preferredFileName) => {
+    if (!url) return;
+    const fileName = preferredFileName || 'download';
     try {
-      fileWindow = window.open('about:blank', '_blank')
-    } catch (_) {
-      // Popup blocked or not permitted
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+    } catch (err) {
+      console.warn('Direct blob fetch failed, falling back to anchor download:', err);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
+  }
+
+  const openResourceFile = async (resourceId, fileId, fileName) => {
     try {
       const result = await apiRequest(`/resources/${resourceId}/files/${fileId}/access`, {
         token: session?.access_token,
       })
       if (!result?.url) throw new Error('The file service did not provide a download link.')
-      if (fileWindow && !fileWindow.closed) {
-        fileWindow.location.href = result.url
-      } else {
-        window.open(result.url, '_blank')
-      }
+      const targetFileName = fileName || result.fileName || 'study-resource';
+      await triggerFileDownload(result.url, targetFileName)
     } catch (error) {
-      if (fileWindow && !fileWindow.closed) {
-        fileWindow.close()
-      }
       console.error('Failed to open resource file:', error)
       setActionNotice(error.message || 'This file is unavailable or you do not have access.')
     }
@@ -1635,31 +1651,27 @@ function App() {
     }
   }
 
-  const openProjectFile = async (projectId, fileId) => {
-    const fileWindow = window.open('about:blank', '_blank')
+  const openProjectFile = async (projectId, fileId, fileName) => {
     try {
       const result = await apiRequest(`/projects/${projectId}/files/${fileId}/access`, {
         token: session?.access_token,
       })
       if (!result?.url) throw new Error('The file service did not provide a download link.')
-      if (fileWindow) fileWindow.location.replace(result.url)
-      else window.location.assign(result.url)
+      const targetFileName = fileName || result.fileName || 'project-file'
+      await triggerFileDownload(result.url, targetFileName)
     } catch (error) {
-      fileWindow?.close()
       console.error('Failed to open project file:', error)
       setActionNotice(error.message || 'File link is currently unavailable.')
     }
   }
 
-  const downloadLabDocument = async (labId) => {
-    const fileWindow = window.open('about:blank', '_blank')
+  const downloadLabDocument = async (labId, fileName) => {
     try {
       const result = await apiRequest(`/projects/labs/${labId}/file`, { token: session?.access_token })
       if (!result?.url) throw new Error('The file service did not provide a download link.')
-      if (fileWindow) fileWindow.location.replace(result.url)
-      else window.location.assign(result.url)
+      const targetFileName = fileName || result.fileName || 'document'
+      await triggerFileDownload(result.url, targetFileName)
     } catch (error) {
-      fileWindow?.close()
       console.error('Failed to download lab document:', error)
       setActionNotice(error.message || 'Unable to download this document.')
     }
@@ -2304,7 +2316,7 @@ function Vault({ resources, search, onSearch, onAdd, onDelete, onEdit, onUnpubli
         </div>
         <div className="post-actions">
           <button className="button ghost" onClick={() => onViewDetail(item)}>Details</button>
-          {item.files?.map((file) => <button key={file.id} className="button ghost" disabled={Boolean(pendingAction)} onClick={() => runAction(`file-${file.id}`, () => onOpenFile(item.id, file.id))}><Download size={14} /> Open {file.fileName || 'file'}</button>)}
+          {item.files?.map((file) => <button key={file.id} className="button ghost" disabled={Boolean(pendingAction)} onClick={() => runAction(`file-${file.id}`, () => onOpenFile(item.id, file.id, file.fileName))}><Download size={14} /> Open {file.fileName || 'file'}</button>)}
           <button className="button ghost" disabled={Boolean(pendingAction)} onClick={() => runAction(`save-${item.id}`, () => onToggleSave(item.id))}>{pendingAction === `save-${item.id}` ? 'Saving…' : item.savedByUser ? 'Unsave' : 'Save'}</button>
           {!isOwner && !isPrivate && <button className="button ghost" onClick={() => onRate(item)}><Star size={13} /> Rate</button>}
           {isOwner && <><button className="button ghost" disabled={Boolean(pendingAction)} onClick={() => onEdit(item)}>Edit</button>{item.visibility === 'PUBLIC' && <button className="button ghost" disabled={Boolean(pendingAction)} onClick={() => runAction(`unpublish-${item.id}`, () => onUnpublish(item))}>Unpublish</button>}<button className="icon-danger" disabled={Boolean(pendingAction)} onClick={() => runAction(`delete-${item.id}`, () => onDelete(item.id))} aria-label="Delete resource" title="Delete resource"><Trash2 size={15} /></button></>}
@@ -2463,7 +2475,7 @@ function getSafeYoutubeUrl(rawUrl, timestamp) {
 
 function ClassMaterial({ material, onOpenFile }) {
   if (material.resource) {
-    return <span><strong>{material.resource.title}</strong><small>{material.resource.type}</small>{material.resource.files?.map((file) => <button className="button ghost" key={file.id} onClick={() => onOpenFile(material.resource.id, file.id)}>Open {file.fileName}</button>)}</span>
+    return <span><strong>{material.resource.title}</strong><small>{material.resource.type}</small>{material.resource.files?.map((file) => <button className="button ghost" key={file.id} onClick={() => onOpenFile(material.resource.id, file.id, file.fileName)}>Open {file.fileName}</button>)}</span>
   }
 
   const data = parseClassMaterial(material.notes)
@@ -2892,7 +2904,7 @@ function ProjectCard({ project, currentUserId, onEdit, onDelete, onOpenFile, onO
       {project.files?.length > 0 && (
         <div className="project-files">
           {project.files.map((file) => (
-            <button key={file.id} className="button ghost" onClick={() => onOpenFile(project.id, file.id)}>
+            <button key={file.id} className="button ghost" onClick={() => onOpenFile(project.id, file.id, file.fileName)}>
               <Download size={13} /> {file.fileName}
             </button>
           ))}
@@ -2972,7 +2984,7 @@ function LabCard({ lab, currentUserId, isExpanded, onToggle, onEdit, onDelete, o
         <span className="lab-badge">{isDocument ? (lab.fileMimeType === 'application/pdf' ? 'PDF document' : 'Word document') : `Experiment #${lab.experimentNo ?? '—'}`}</span>
         {lab.subjectId && <span className="type-pill">{lab.subjectId}</span>}
         <div className="post-actions" style={{ marginLeft: 'auto' }}>
-          {isDocument && <button className="button ghost" onClick={() => onDownload(lab.id)}><Download size={14} /> Download</button>}
+          {isDocument && <button className="button ghost" onClick={() => onDownload(lab.id, lab.fileName)}><Download size={14} /> Download</button>}
           {!isDocument && <button className="button ghost" onClick={onToggle}>{isExpanded ? 'Hide Details' : 'View Code & Aim'}</button>}
           {isOwner && <><button className="icon-button" aria-label="Edit repository document" title="Edit document" onClick={() => onEdit(lab)}><Pencil size={14} /></button><button className="icon-danger" aria-label="Delete repository document" title="Delete document" onClick={() => onDelete(lab.id)}><Trash2 size={15} /></button></>}
         </div>
@@ -3480,7 +3492,7 @@ function ResourceDetailModal({ resource, currentUserId, onOpenFile, onToggleSave
                 <button
                   type="button"
                   className="button primary"
-                  onClick={() => onOpenFile(resource.id, file.id)}
+                  onClick={() => onOpenFile(resource.id, file.id, file.fileName)}
                 >
                   <Download size={14} /> Open / Download
                 </button>

@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
 import multer from 'multer';
 import { uploadResourceFile, InvalidResourceFileError } from '../lib/storage';
-import { deleteFromCloudinary } from '../lib/cloudinary';
+import { deleteFromCloudinary, buildAttachmentUrl } from '../lib/cloudinary';
 import { randomUUID } from 'node:crypto';
 
 const router = Router();
@@ -388,7 +388,8 @@ router.get('/:id/files/:fileId/access', requireAuth, async (req: AuthenticatedRe
     const file = await prisma.projectFile.findUnique({ where: { id: fileId } });
     if (!file || file.projectId !== projectId) return res.status(404).json({ error: 'File not found' });
 
-    res.json({ url: file.fileUrl, expiresIn: 300 });
+    const downloadUrl = buildAttachmentUrl(file.fileUrl, file.fileName);
+    res.json({ url: downloadUrl, fileName: file.fileName, expiresIn: 300 });
   } catch (error) {
     console.error('Failed to get file link:', error);
     res.status(500).json({ error: 'Server error' });
@@ -540,7 +541,8 @@ router.get('/labs/:id/file', requireAuth, async (req: AuthenticatedRequest, res)
     const lab = await prisma.labRecord.findUnique({ where: { id: labId }, select: { fileReference: true, fileName: true } });
     if (!lab?.fileReference) return res.status(404).json({ error: 'Document file not found' });
     
-    res.json({ url: lab.fileReference, expiresIn: 300 });
+    const downloadUrl = buildAttachmentUrl(lab.fileReference, lab.fileName);
+    res.json({ url: downloadUrl, fileName: lab.fileName, expiresIn: 300 });
   } catch (error) {
     console.error('Failed to get lab document link:', error);
     res.status(500).json({ error: 'Server error' });
