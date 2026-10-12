@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useAuth } from './auth/useAuth.js'
-import { apiRequest, apiUpload } from './lib/api.js'
+import { apiRequest, apiUpload, resolveEndpoint } from './lib/api.js'
 import { discussionApi } from './lib/discussions.js'
 import { trackPageView, trackEvent } from './lib/analytics.js'
 import {
@@ -56,6 +56,7 @@ import TimetablePage from './timetable/TimetablePage.jsx'
 import AttendancePage from './attendance/AttendancePage.jsx'
 import DashboardAttendanceWidget from './attendance/DashboardAttendanceWidget.jsx'
 import AcademicOnboardingModal from './auth/AcademicOnboardingModal.jsx'
+import FileViewerModal from './components/FileViewerModal.jsx'
 import studyosMark from './assets/studyos-mark.png'
 import campassistIcon from './assets/campassist-icon.png'
 
@@ -173,6 +174,9 @@ function App() {
   const [showTeamModal, setShowTeamModal] = useState(false)
   const [editingTeam, setEditingTeam] = useState(null)
   const [teamRequestsDialog, setTeamRequestsDialog] = useState(null)
+  const [teamReviewNotice, setTeamReviewNotice] = useState(null)
+  const [decidingRequestId, setDecidingRequestId] = useState(null)
+  const [activePreviewFile, setActivePreviewFile] = useState(null)
   const [myApplications, setMyApplications] = useState([])
   const [myApplicationsLoading, setMyApplicationsLoading] = useState(false)
   const [myApplicationsOpen, setMyApplicationsOpen] = useState(false)
@@ -512,42 +516,87 @@ function App() {
     return title.includes(searchText) || subject.includes(searchText);
   }), [resources, vaultSearch])
 
-  const triggerFileDownload = async (url, preferredFileName) => {
-    if (!url) return;
-    const fileName = preferredFileName || 'download';
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
-    } catch (err) {
-      console.warn('Direct blob fetch failed, falling back to anchor download:', err);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+  const triggerFileDownload = async (fileOrUrl, preferredFileName) => {
+    let url = typeof fileOrUrl === 'string' ? fileOrUrl : (fileOrUrl?.downloadUrl || fileOrUrl?.url)
+    let fileName = preferredFileName || (typeof fileOrUrl === 'object' ? fileOrUrl?.fileName : null) || 'download'
+    let directEndpoint = typeof fileOrUrl === 'object' ? fileOrUrl?.directDownloadUrl : null
+
+    if (!url && !directEndpoint) return
+
+    // Try direct streaming endpoint first if available with auth header
+    if (directEndpoint && session?.access_token) {
+      try {
+        const res = await fetch(directEndpoint, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+        if (res.ok) {
+          const blob = await res.blob()
+          const blobUrl = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = blobUrl
+          link.download = fileName
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 3000)
+          return
+        }
+      } catch (e) {
+        console.warn('Authorized direct stream download failed, falling back to delivery URL:', e)
+      }
+    }
+
+    if (url) {
+      try {
+        const res = await fetch(url)
+        if (res.ok) {
+          const blob = await res.blob()
+          const blobUrl = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = blobUrl
+          link.download = fileName
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 3000)
+          return
+        }
+      } catch (err) {
+        console.warn('Direct blob fetch failed, falling back to anchor download:', err)
+      }
+      const link = document.createElement('a')
+      link.href = url
+      link.download = fileName
+      link.target = '_blank'
+      link.rel = 'noopener noreferrer'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
     }
   }
 
-  const openResourceFile = async (resourceId, fileId, fileName) => {
+  const openResourceFile = async (resourceId, fileId, fileName, mode = 'preview') => {
     try {
       const result = await apiRequest(`/resources/${resourceId}/files/${fileId}/access`, {
         token: session?.access_token,
       })
-      if (!result?.url) throw new Error('The file service did not provide a download link.')
-      const targetFileName = fileName || result.fileName || 'study-resource';
-      await triggerFileDownload(result.url, targetFileName)
+      if (!result?.url && !result?.previewUrl) throw new Error('The file service did not provide a download link.')
+      const targetFileName = fileName || result.fileName || 'study-resource'
+      const filePayload = {
+        title: targetFileName,
+        fileName: targetFileName,
+        url: result.previewUrl || result.url,
+        previewUrl: result.previewUrl || result.url,
+        downloadUrl: result.downloadUrl || result.url,
+        directDownloadUrl: result.directDownloadUrl ? resolveEndpoint(result.directDownloadUrl) : null,
+        mimeType: result.mimeType || '',
+        fileSize: result.fileSize,
+      }
+      if (mode === 'download') {
+        await triggerFileDownload(filePayload, targetFileName)
+      } else {
+        setActivePreviewFile(filePayload)
+      }
     } catch (error) {
       console.error('Failed to open resource file:', error)
       setActionNotice(error.message || 'This file is unavailable or you do not have access.')
@@ -1443,8 +1492,10 @@ function App() {
   }
 
   const decideTeamRequest = async (status, requestId) => {
-    if (!teamRequestsDialog) return
+    if (!teamRequestsDialog || decidingRequestId) return
     const teamId = teamRequestsDialog.team.id
+    setDecidingRequestId(requestId)
+    setTeamReviewNotice(null)
     try {
       await apiRequest(`/teams/${teamId}/requests/${requestId}`, {
         method: 'PATCH',
@@ -1458,10 +1509,22 @@ function App() {
       const post = normalizeTeamPost(teamData.teamPost)
       setTeamPosts((current) => current.map((item) => item.id === teamId ? post : item))
       setTeamRequestsDialog({ team: post, requests: requestsData.requests || [] })
+      setTeamReviewNotice({
+        type: 'success',
+        text: status === 'ACCEPTED' ? 'Candidate successfully selected and added to team.' :
+              status === 'SHORTLISTED' ? 'Candidate moved to shortlist.' :
+              status === 'REJECTED' ? 'Candidate application rejected.' :
+              'Application updated to pending.',
+      })
       await refreshNotifications()
     } catch (error) {
       console.error('Failed to decide team request:', error)
-      window.alert(error.message || 'Unable to update this join request.')
+      setTeamReviewNotice({
+        type: 'error',
+        text: error.message || 'Unable to update this join request.',
+      })
+    } finally {
+      setDecidingRequestId(null)
     }
   }
 
@@ -1672,26 +1735,54 @@ function App() {
     }
   }
 
-  const openProjectFile = async (projectId, fileId, fileName) => {
+  const openProjectFile = async (projectId, fileId, fileName, mode = 'preview') => {
     try {
       const result = await apiRequest(`/projects/${projectId}/files/${fileId}/access`, {
         token: session?.access_token,
       })
-      if (!result?.url) throw new Error('The file service did not provide a download link.')
+      if (!result?.url && !result?.previewUrl) throw new Error('The file service did not provide a download link.')
       const targetFileName = fileName || result.fileName || 'project-file'
-      await triggerFileDownload(result.url, targetFileName)
+      const filePayload = {
+        title: targetFileName,
+        fileName: targetFileName,
+        url: result.previewUrl || result.url,
+        previewUrl: result.previewUrl || result.url,
+        downloadUrl: result.downloadUrl || result.url,
+        directDownloadUrl: result.directDownloadUrl ? resolveEndpoint(result.directDownloadUrl) : null,
+        mimeType: result.mimeType || '',
+        fileSize: result.fileSize,
+      }
+      if (mode === 'download') {
+        await triggerFileDownload(filePayload, targetFileName)
+      } else {
+        setActivePreviewFile(filePayload)
+      }
     } catch (error) {
       console.error('Failed to open project file:', error)
       setActionNotice(error.message || 'File link is currently unavailable.')
     }
   }
 
-  const downloadLabDocument = async (labId, fileName) => {
+  const downloadLabDocument = async (labId, fileName, mode = 'preview') => {
     try {
       const result = await apiRequest(`/projects/labs/${labId}/file`, { token: session?.access_token })
-      if (!result?.url) throw new Error('The file service did not provide a download link.')
+      if (!result?.url && !result?.previewUrl) throw new Error('The file service did not provide a download link.')
       const targetFileName = fileName || result.fileName || 'document'
-      await triggerFileDownload(result.url, targetFileName)
+      const filePayload = {
+        title: targetFileName,
+        fileName: targetFileName,
+        url: result.previewUrl || result.url,
+        previewUrl: result.previewUrl || result.url,
+        downloadUrl: result.downloadUrl || result.url,
+        directDownloadUrl: result.directDownloadUrl ? resolveEndpoint(result.directDownloadUrl) : null,
+        mimeType: result.mimeType || '',
+        fileSize: result.fileSize,
+      }
+      if (mode === 'download') {
+        await triggerFileDownload(filePayload, targetFileName)
+      } else {
+        setActivePreviewFile(filePayload)
+      }
     } catch (error) {
       console.error('Failed to download lab document:', error)
       setActionNotice(error.message || 'Unable to download this document.')
@@ -1973,7 +2064,33 @@ function App() {
       </Modal>}
       {showTeamModal && <Modal title={editingTeam ? 'Edit team opportunity' : 'Create a team opportunity'} onClose={() => !teamSaving && (setShowTeamModal(false), setEditingTeam(null))}><TeamPostForm key={editingTeam?.id || 'new-team'} team={editingTeam} onSubmit={createTeam} saving={teamSaving} /></Modal>}
       {teamApplicationDialog && <Modal title={`Apply to ${teamApplicationDialog.title}`} onClose={() => setTeamApplicationDialog(null)}><TeamApplicationForm post={teamApplicationDialog} profile={profile} skills={skills} onSubmit={joinTeam} /></Modal>}
-      {teamRequestsDialog && <Modal title={`Applications · ${teamRequestsDialog.team.title}`} onClose={() => setTeamRequestsDialog(null)}><TeamApplicationReview team={teamRequestsDialog.team} requests={teamRequestsDialog.requests} onDecision={decideTeamRequest} onSaveNotes={saveRecruiterNotes} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile'); setTeamRequestsDialog(null) }} /></Modal>}
+      {teamRequestsDialog && (
+        <Modal
+          title={`Applications · ${teamRequestsDialog.team.title}`}
+          onClose={() => {
+            setTeamRequestsDialog(null)
+            setTeamReviewNotice(null)
+          }}
+        >
+          <TeamApplicationReview
+            team={teamRequestsDialog.team}
+            requests={teamRequestsDialog.requests}
+            onDecision={decideTeamRequest}
+            onSaveNotes={saveRecruiterNotes}
+            decidingRequestId={decidingRequestId}
+            notice={teamReviewNotice}
+            onOpenChat={() => {
+              setTeamRequestsDialog(null)
+              go('messages')
+            }}
+            onOpenProfile={(profileId) => {
+              setSelectedPublicProfileId(profileId)
+              go('profile')
+              setTeamRequestsDialog(null)
+            }}
+          />
+        </Modal>
+      )}
       {helpRequestDialog && <Modal title={`Request help · ${helpRequestDialog.title}`} onClose={() => setHelpRequestDialog(null)}><HelpRequestForm service={helpRequestDialog} onSubmit={claimJob} onCancel={() => setHelpRequestDialog(null)} /></Modal>}
       {showJobModal && <Modal title={editingJob ? 'Edit help service' : 'Offer student help'} onClose={() => !helpSaving && (setShowJobModal(false), setEditingJob(null))}><HelpServiceForm service={editingJob} onSubmit={createJob} saving={helpSaving} onCancel={() => { setShowJobModal(false); setEditingJob(null) }} /></Modal>}
       {showProjectModal && <Modal title={editingProject ? 'Edit academic project' : 'Share an academic project'} onClose={() => !projectSaving && (setShowProjectModal(false), setEditingProject(null))}><form key={editingProject?.id || 'new-project'} className="modal-form" onSubmit={createProject}><label>Project title<input name="title" required maxLength={160} defaultValue={editingProject?.title || ''} placeholder="e.g. Distributed Key-Value Store" /></label><div className="form-row"><label>Category<select name="category" defaultValue={editingProject?.category || 'COLLEGE_PROJECT'}><option value="COLLEGE_PROJECT">College Project</option><option value="WEB_APP">Web App</option><option value="MOBILE_APP">Mobile App</option><option value="ML_AI">Machine Learning / AI</option><option value="DATA_SCIENCE">Data Science</option><option value="EMBEDDED">Embedded / IoT</option><option value="GAME">Game Dev</option><option value="API">API / Backend</option><option value="LIBRARY">Library / Tool</option><option value="RESEARCH">Research</option><option value="OTHER">Other</option></select></label><label>Technologies used<input name="technology" maxLength={500} defaultValue={editingProject?.technology || ''} placeholder="e.g. Go, Raft, Docker, Redis" /></label></div><label>Project description<textarea name="description" maxLength={5000} defaultValue={editingProject?.description || ''} placeholder="What problem does it solve and what are the key features?" /></label><div className="form-row"><label>GitHub repository URL<input name="githubUrl" type="url" defaultValue={editingProject?.githubUrl || ''} placeholder="https://github.com/..." /></label><label>Live demo URL<input name="demoUrl" type="url" defaultValue={editingProject?.demoUrl || ''} placeholder="https://..." /></label></div><div className="form-row"><label>Tags (comma-separated)<input name="tags" defaultValue={editingProject?.tags?.join(', ') || ''} placeholder="system-design, distributed, raft" /></label><label>Visibility<select name="visibility" defaultValue={editingProject?.visibility || 'PUBLIC'}><option value="PUBLIC">Public</option><option value="PRIVATE">Private</option></select></label></div>{!editingProject && <label>Upload project file or zip (optional, max 10MB)<input name="file" type="file" accept=".pdf,.doc,.docx,.txt,.md,.zip,.png,.jpg,.jpeg,.webp,.mp4" /></label>}<div className="modal-actions"><button type="button" className="button secondary" disabled={projectSaving} onClick={() => { setShowProjectModal(false); setEditingProject(null) }}>Cancel</button><button className="button primary" type="submit" disabled={projectSaving}><Plus size={16} /> {projectSaving ? 'Saving…' : editingProject ? 'Save changes' : 'Add project'}</button></div></form></Modal>}
@@ -1982,6 +2099,13 @@ function App() {
       {reportDialog && <Modal title="Report this resource" onClose={() => !reportSaving && setReportDialog(null)}><ReportResourceForm resource={reportDialog} saving={reportSaving} error={reportError} onSubmit={(report) => reportResource(reportDialog.id, report)} onCancel={() => setReportDialog(null)} /></Modal>}
       {rateDialog && <RateResourceModal resource={rateDialog} saving={rateSaving} error={rateError} onSubmit={(score) => submitResourceRating(rateDialog.id, score)} onCancel={() => setRateDialog(null)} />}
       {detailResource && <ResourceDetailModal resource={detailResource} currentUserId={user?.id} onOpenFile={openResourceFile} onToggleSave={toggleResourceSave} onRate={(item) => { setRateError(''); setRateDialog(item) }} onReport={(id) => { setReportDialog(resources.find((item) => item.id === id) || null); setReportError('') }} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile'); setDetailResource(null) }} onClose={() => setDetailResource(null)} />}
+      {activePreviewFile && (
+        <FileViewerModal
+          file={activePreviewFile}
+          onClose={() => setActivePreviewFile(null)}
+          onDownload={(fileObj) => triggerFileDownload(fileObj)}
+        />
+      )}
       {actionNotice && <div className="action-toast" role="status">{actionNotice}</div>}
     </div>
   )
@@ -2668,22 +2792,51 @@ function RecruiterNotes({ requestId, value, onSave }) {
   return <form className="recruiter-notes" onSubmit={submit}><label>Private recruiter notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={3000} placeholder="Only the recruitment owner can see these notes." /></label><button className="button ghost" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save private notes'}</button></form>
 }
 
-function TeamApplicationReview({ team, requests, onDecision, onSaveNotes, onOpenProfile }) {
+function TeamApplicationReview({ team, requests, onDecision, onSaveNotes, onOpenProfile, decidingRequestId, notice, onOpenChat }) {
   const statusLabels = { PENDING: 'Submitted', SHORTLISTED: 'Under review · shortlisted', ACCEPTED: 'Selected', REJECTED: 'Not selected', WITHDRAWN: 'Withdrawn' }
   const pending = requests.filter((request) => ['PENDING', 'SHORTLISTED'].includes(request.status)).length
   const selected = requests.filter((request) => request.status === 'ACCEPTED').length
+
   return <div className="team-application-review">
+    {notice && (
+      <div className={`team-review-notice ${notice.type === 'error' ? 'notice-error' : 'notice-success'}`} role="alert">
+        {notice.text}
+      </div>
+    )}
     <div className="market-stats"><div><strong>{requests.length}</strong><span>Applicants</span></div><div><strong>{pending}</strong><span>Pending review</span></div><div><strong>{selected}</strong><span>Selected</span></div></div>
-    <p className="class-topic-empty">Applications are private to the recruitment owner. Accepting a candidate adds them to the team and grants team-chat access.</p>
+    <p className="class-topic-empty">Applications are private to the recruitment owner. Selecting a candidate automatically confirms their team membership and unlocks team chat.</p>
     {requests.length ? requests.map((request) => {
       const answers = request.applicationData || {}
       const candidateProfile = request.user?.profile || {}
       const academic = request.user?.academicIdentity || {}
       const candidateName = candidateProfile.fullName || request.user?.name || 'Student'
       const candidateSkills = request.user?.skills?.map((entry) => entry.skill?.name).filter(Boolean) || []
+      const candidateUserId = request.userId || request.user?.id
+      const isAlreadyMember = Boolean(
+        request.status === 'ACCEPTED' ||
+        (team.memberships && team.memberships.some((m) => m.userId === candidateUserId))
+      )
+      const isCurrentDeciding = decidingRequestId === request.id
+      const isAnyDeciding = Boolean(decidingRequestId)
+
       return <article className="team-application-card" key={request.id}>
-        <div className="team-application-card-header"><span className="avatar">{(candidateName || 'S').slice(0, 2).toUpperCase()}</span><div><strong>{candidateName}</strong><small>{request.roleAppliedFor || 'Role not specified'} · Submitted {new Date(request.createdAt).toLocaleDateString()}</small></div><span className="team-status">{statusLabels[request.status] || 'Under review'}</span></div>
-        {academic.isPublic && <button type="button" className="button ghost" onClick={() => onOpenProfile(request.user.id)}>View public profile <ExternalLink size={13} /></button>}
+        <div className="team-application-card-header">
+          <span className="avatar">{(candidateName || 'S').slice(0, 2).toUpperCase()}</span>
+          <div>
+            <strong>{candidateName}</strong>
+            <small>{request.roleAppliedFor || 'Role not specified'} · Submitted {new Date(request.createdAt).toLocaleDateString()}</small>
+          </div>
+          {isAlreadyMember ? (
+            <span className="team-status accepted-badge">✓ Selected · Team Member</span>
+          ) : request.status === 'SHORTLISTED' ? (
+            <span className="team-status shortlisted-badge">★ Shortlisted</span>
+          ) : request.status === 'REJECTED' ? (
+            <span className="team-status rejected-badge">Not selected</span>
+          ) : (
+            <span className="team-status">{statusLabels[request.status] || 'Under review'}</span>
+          )}
+        </div>
+        {academic.isPublic && <button type="button" className="button ghost" onClick={() => onOpenProfile(request.user?.id || candidateUserId)}>View public profile <ExternalLink size={13} /></button>}
         <div className="team-application-facts">
           {(academic.institution || answers.college) && <span><strong>College:</strong> {academic.institution || answers.college}</span>}
           {(academic.branch || candidateProfile.department || answers.branch) && <span><strong>Branch:</strong> {academic.branch || candidateProfile.department || answers.branch}</span>}
@@ -2701,8 +2854,86 @@ function TeamApplicationReview({ team, requests, onDecision, onSaveNotes, onOpen
           ['Weekly availability', answers.availability],
           ['Preferred schedule', answers.schedule],
         ].filter(([, value]) => value).map(([label, value]) => <p key={label}><strong>{label}:</strong> {value}</p>)}
-        {['PENDING', 'SHORTLISTED'].includes(request.status) && <RecruiterNotes requestId={request.id} value={request.recruiterNotes} onSave={onSaveNotes} />}
-        {['PENDING', 'SHORTLISTED'].includes(request.status) && <div className="post-actions">{request.status === 'PENDING' && <button className="button secondary" onClick={() => onDecision('SHORTLISTED', request.id)}>Shortlist</button>}<button className="button secondary" onClick={() => onDecision('REJECTED', request.id)}>Reject</button><button className="button primary" disabled={team.isExpired} onClick={() => onDecision('ACCEPTED', request.id)}>Select candidate</button></div>}
+
+        {['PENDING', 'SHORTLISTED', 'ACCEPTED'].includes(request.status) && (
+          <RecruiterNotes requestId={request.id} value={request.recruiterNotes} onSave={onSaveNotes} />
+        )}
+
+        {isAlreadyMember ? (
+          <div className="post-actions" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '12px', color: '#059669', fontWeight: 600 }}>Active team member with chat access</span>
+            {onOpenChat && (
+              <button type="button" className="button ghost" onClick={() => onOpenChat(team.id)}>
+                <MessageSquare size={13} /> Open team chat
+              </button>
+            )}
+          </div>
+        ) : request.status === 'PENDING' ? (
+          <div className="post-actions">
+            <button
+              type="button"
+              className="button secondary"
+              disabled={isAnyDeciding}
+              onClick={() => onDecision('SHORTLISTED', request.id)}
+            >
+              {isCurrentDeciding ? 'Saving…' : 'Shortlist'}
+            </button>
+            <button
+              type="button"
+              className="button secondary"
+              disabled={isAnyDeciding}
+              onClick={() => onDecision('REJECTED', request.id)}
+            >
+              Reject
+            </button>
+            <button
+              type="button"
+              className="button primary"
+              disabled={isAnyDeciding || team.isExpired}
+              onClick={() => onDecision('ACCEPTED', request.id)}
+            >
+              {isCurrentDeciding ? 'Selecting…' : 'Select candidate'}
+            </button>
+          </div>
+        ) : request.status === 'SHORTLISTED' ? (
+          <div className="post-actions">
+            <button
+              type="button"
+              className="button secondary"
+              disabled={isAnyDeciding}
+              onClick={() => onDecision('PENDING', request.id)}
+            >
+              {isCurrentDeciding ? 'Updating…' : 'Move to pending'}
+            </button>
+            <button
+              type="button"
+              className="button secondary"
+              disabled={isAnyDeciding}
+              onClick={() => onDecision('REJECTED', request.id)}
+            >
+              Reject
+            </button>
+            <button
+              type="button"
+              className="button primary"
+              disabled={isAnyDeciding || team.isExpired}
+              onClick={() => onDecision('ACCEPTED', request.id)}
+            >
+              {isCurrentDeciding ? 'Selecting…' : 'Select candidate'}
+            </button>
+          </div>
+        ) : request.status === 'REJECTED' ? (
+          <div className="post-actions">
+            <button
+              type="button"
+              className="button ghost"
+              disabled={isAnyDeciding}
+              onClick={() => onDecision('SHORTLISTED', request.id)}
+            >
+              {isCurrentDeciding ? 'Updating…' : 'Reconsider candidate'}
+            </button>
+          </div>
+        ) : null}
       </article>
     }) : <p className="notification-empty">No applications have been submitted for this recruitment post yet.</p>}
   </div>
@@ -3565,13 +3796,22 @@ function ResourceDetailModal({ resource, currentUserId, onOpenFile, onToggleSave
                   <strong>{file.fileName || 'Attachment'}</strong>
                   {file.fileSize && <small style={{ display: 'block', color: '#64748b' }}>{(file.fileSize / (1024 * 1024)).toFixed(2)} MB</small>}
                 </div>
-                <button
-                  type="button"
-                  className="button primary"
-                  onClick={() => onOpenFile(resource.id, file.id, file.fileName)}
-                >
-                  <Download size={14} /> Open / Download
-                </button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="button secondary"
+                    onClick={() => onOpenFile(resource.id, file.id, file.fileName, 'preview')}
+                  >
+                    <BookOpen size={14} /> Preview
+                  </button>
+                  <button
+                    type="button"
+                    className="button primary"
+                    onClick={() => onOpenFile(resource.id, file.id, file.fileName, 'download')}
+                  >
+                    <Download size={14} /> Download
+                  </button>
+                </div>
               </div>
             ))}
           </div>

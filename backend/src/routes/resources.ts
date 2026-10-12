@@ -5,7 +5,8 @@ import { randomUUID } from 'node:crypto';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
 import { Prisma, prisma } from '../lib/prisma';
 import { InvalidResourceFileError, uploadResourceFile } from '../lib/storage';
-import { deleteFromCloudinary, buildAttachmentUrl } from '../lib/cloudinary';
+import { deleteFromCloudinary, buildAttachmentUrl, buildCleanPreviewUrl } from '../lib/cloudinary';
+import { streamAuthorizedDownload } from '../lib/fileDownload';
 
 const router = Router();
 
@@ -92,12 +93,56 @@ router.get('/:id/files/:fileId/access', requireAuth, async (req: AuthenticatedRe
       return res.status(403).json({ error: 'This resource is private' });
     }
 
+    const previewUrl = buildCleanPreviewUrl(file.fileUrl);
     const downloadUrl = buildAttachmentUrl(file.fileUrl, file.fileName);
-    res.json({ url: downloadUrl, fileName: file.fileName, expiresIn: 300 });
+    res.json({
+      url: previewUrl,
+      previewUrl,
+      downloadUrl,
+      directDownloadUrl: `/api/v1/studyos/resources/${id}/files/${fileId}/download`,
+      fileName: file.fileName,
+      mimeType: file.mimeType || 'application/octet-stream',
+      fileSize: file.fileSize,
+      fileId: file.id,
+      resourceId: id,
+      expiresIn: 300,
+    });
     return;
   } catch (error) {
     console.error('Failed to create resource file link:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/:id/files/:fileId/download', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const fileId = Array.isArray(req.params.fileId) ? req.params.fileId[0] : req.params.fileId;
+    if (!id || !fileId) {
+      return res.status(400).json({ error: 'Missing resource or file id' });
+    }
+
+    const file = await prisma.resourceFile.findFirst({
+      where: { id: fileId, resourceId: id },
+      include: { resource: { select: { creatorId: true, visibility: true } } },
+    });
+    if (!file) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    const resource = file.resource || await prisma.resource.findUnique({ where: { id } });
+    if (!resource) {
+      return res.status(404).json({ error: 'Resource not found' });
+    }
+    if (resource.visibility !== 'PUBLIC' && resource.creatorId !== req.user!.id) {
+      return res.status(403).json({ error: 'This resource is private' });
+    }
+
+    await streamAuthorizedDownload(res, file.fileUrl, file.fileName, file.mimeType);
+  } catch (error) {
+    console.error('Failed to stream resource download:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to download resource file' });
+    }
   }
 });
 

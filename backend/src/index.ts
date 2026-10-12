@@ -318,7 +318,7 @@ app.get('/api/v1/studyos/public-profile/:userId', requireAuth, async (req, res) 
             institution: true, year: true, semester: true, session: true,
             github: true, linkedin: true, portfolio: true,
             bio: true, residency: true, rollNumber: true, department: true, section: true,
-            skills: true, experience: true,
+            gender: true, skills: true, experience: true,
           },
         },
         skills: { select: { proficiency: true, experience: true, portfolioUrl: true, skill: { select: { id: true, name: true } } } },
@@ -331,6 +331,7 @@ app.get('/api/v1/studyos/public-profile/:userId', requireAuth, async (req, res) 
           ...user.academicIdentity,
           rollNumber: isOwner ? user.academicIdentity.rollNumber : undefined,
           residency: isOwner ? user.academicIdentity.residency : undefined,
+          gender: isOwner ? user.academicIdentity.gender : undefined,
         }
       : null;
 
@@ -415,14 +416,21 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
     }
 
     const { user, academicIdentity } = await prisma.$transaction(async (transaction) => {
-      const existingUser = await transaction.user.findUnique({ where: { id: userId } });
+      const existingUser = await transaction.user.findUnique({ where: { id: userId }, include: { profile: true } });
+      const rawResidency = input.residency || (body.studentType ? String(body.studentType) : undefined);
+      const normResidency = rawResidency
+        ? (rawResidency.toUpperCase().includes('HOSTEL') ? 'HOSTELER' : 'DAY_SCHOLAR')
+        : (existingUser?.profile?.residency || (existingUser?.studentType === 'HOSTELLER' ? 'HOSTELER' : (existingUser?.studentType === 'DAY_SCHOLAR' ? 'DAY_SCHOLAR' : null)));
+      const studentType = normResidency === 'HOSTELER' ? 'HOSTELLER' : (normResidency === 'DAY_SCHOLAR' ? 'DAY_SCHOLAR' : null);
+
       const user = await transaction.user.update({
         where: { id: userId },
         data: {
           name: input.name,
           avatarUrl: input.avatarUrl,
-          gender: input.gender,
+          gender: input.gender ?? existingUser?.gender ?? null,
           tonePreference: input.tonePreference,
+          studentType,
         },
       });
       await transaction.profile.upsert({
@@ -435,8 +443,9 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
           rollNumber: input.rollNumber,
           semester: input.semester,
           bio: input.bio,
-          residency: input.residency,
-          gender: input.gender,
+          residency: normResidency,
+          studentType,
+          gender: input.gender ?? existingUser?.profile?.gender ?? null,
         },
         create: {
           userId,
@@ -447,7 +456,8 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
           rollNumber: input.rollNumber ?? null,
           semester: input.semester ?? null,
           bio: input.bio ?? null,
-          residency: input.residency ?? 'DAY_SCHOLAR',
+          residency: normResidency ?? 'DAY_SCHOLAR',
+          studentType: studentType ?? 'DAY_SCHOLAR',
           gender: input.gender ?? null,
         },
       });
@@ -466,11 +476,12 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
           linkedin: input.linkedin,
           portfolio: input.portfolio,
           bio: input.bio,
-          residency: input.residency,
+          residency: normResidency,
+          studentType,
           rollNumber: input.rollNumber,
           department: input.department,
           section: input.section,
-          gender: input.gender,
+          gender: input.gender ?? existingUser?.academicIdentity?.gender ?? null,
           tonePreference: input.tonePreference,
           skills: input.skills,
           experience: input.experience,
@@ -490,7 +501,8 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
           linkedin: input.linkedin ?? null,
           portfolio: input.portfolio ?? null,
           bio: input.bio ?? null,
-          residency: input.residency ?? 'DAY_SCHOLAR',
+          residency: normResidency ?? 'DAY_SCHOLAR',
+          studentType: studentType ?? 'DAY_SCHOLAR',
           rollNumber: input.rollNumber ?? null,
           department: input.department ?? null,
           section: input.section ?? null,

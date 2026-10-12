@@ -3,7 +3,8 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
 import multer from 'multer';
 import { uploadResourceFile, InvalidResourceFileError } from '../lib/storage';
-import { deleteFromCloudinary, buildAttachmentUrl } from '../lib/cloudinary';
+import { deleteFromCloudinary, buildAttachmentUrl, buildCleanPreviewUrl } from '../lib/cloudinary';
+import { streamAuthorizedDownload } from '../lib/fileDownload';
 import { randomUUID } from 'node:crypto';
 
 const router = Router();
@@ -388,11 +389,46 @@ router.get('/:id/files/:fileId/access', requireAuth, async (req: AuthenticatedRe
     const file = await prisma.projectFile.findUnique({ where: { id: fileId } });
     if (!file || file.projectId !== projectId) return res.status(404).json({ error: 'File not found' });
 
+    const previewUrl = buildCleanPreviewUrl(file.fileUrl);
     const downloadUrl = buildAttachmentUrl(file.fileUrl, file.fileName);
-    res.json({ url: downloadUrl, fileName: file.fileName, expiresIn: 300 });
+    res.json({
+      url: previewUrl,
+      previewUrl,
+      downloadUrl,
+      directDownloadUrl: `/api/v1/studyos/projects/${projectId}/files/${fileId}/download`,
+      fileName: file.fileName,
+      mimeType: file.mimeType || 'application/octet-stream',
+      fileSize: file.fileSize,
+      expiresIn: 300,
+    });
   } catch (error) {
     console.error('Failed to get file link:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/:id/files/:fileId/download', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const projectId = getParam(req.params.id);
+    const fileId = getParam(req.params.fileId);
+    const userId = req.user!.id;
+    if (!projectId || !fileId) return res.status(400).json({ error: 'Missing parameters' });
+
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    if (project.visibility !== 'PUBLIC' && project.creatorId !== userId) {
+      return res.status(403).json({ error: 'This project is private' });
+    }
+
+    const file = await prisma.projectFile.findUnique({ where: { id: fileId } });
+    if (!file || file.projectId !== projectId) return res.status(404).json({ error: 'File not found' });
+
+    await streamAuthorizedDownload(res, file.fileUrl, file.fileName, file.mimeType);
+  } catch (error) {
+    console.error('Failed to stream project file download:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to download file' });
+    }
   }
 });
 
@@ -541,11 +577,35 @@ router.get('/labs/:id/file', requireAuth, async (req: AuthenticatedRequest, res)
     const lab = await prisma.labRecord.findUnique({ where: { id: labId }, select: { fileReference: true, fileName: true } });
     if (!lab?.fileReference) return res.status(404).json({ error: 'Document file not found' });
     
+    const previewUrl = buildCleanPreviewUrl(lab.fileReference);
     const downloadUrl = buildAttachmentUrl(lab.fileReference, lab.fileName);
-    res.json({ url: downloadUrl, fileName: lab.fileName, expiresIn: 300 });
+    res.json({
+      url: previewUrl,
+      previewUrl,
+      downloadUrl,
+      directDownloadUrl: `/api/v1/studyos/projects/labs/${labId}/download`,
+      fileName: lab.fileName,
+      expiresIn: 300,
+    });
   } catch (error) {
     console.error('Failed to get lab document link:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/labs/:id/download', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const labId = getParam(req.params.id);
+    if (!labId) return res.status(400).json({ error: 'Lab ID required' });
+    const lab = await prisma.labRecord.findUnique({ where: { id: labId }, select: { fileReference: true, fileName: true } });
+    if (!lab?.fileReference) return res.status(404).json({ error: 'Document file not found' });
+
+    await streamAuthorizedDownload(res, lab.fileReference, lab.fileName);
+  } catch (error) {
+    console.error('Failed to stream lab download:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to download lab file' });
+    }
   }
 });
 

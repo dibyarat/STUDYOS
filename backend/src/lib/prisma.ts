@@ -681,7 +681,7 @@ export class FirestoreCollection<T extends Record<string, any> = Record<string, 
 
     if (include.requests) {
       const requests = await prisma.teamJoinRequest.findMany({
-        where: { teamPostId: item.id, ...include.requests.where },
+        where: { OR: [{ teamId: item.id }, { teamPostId: item.id }], ...include.requests.where },
       });
       resolved.requests = requests.map((r: any) => applySelect(r, include.requests.select));
     }

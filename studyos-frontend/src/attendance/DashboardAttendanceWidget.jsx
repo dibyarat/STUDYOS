@@ -104,3 +104,4 @@ export default function DashboardAttendanceWidget({ token, onNavigate }) {
     </div>
   );
 }
+

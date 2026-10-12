@@ -414,3 +414,4 @@ export default function AttendancePage({ user, profile, token, onNavigateToTimet
     </section>
   );
 }
+

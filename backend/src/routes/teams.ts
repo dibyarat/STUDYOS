@@ -433,8 +433,8 @@ router.patch('/:id/requests/:requestId', requireAuth, async (req: AuthenticatedR
     const teamId = getParam(req.params.id);
     const requestId = getParam(req.params.requestId);
     const status = String(req.body?.status || '').toUpperCase();
-    if (!teamId || !requestId || !['SHORTLISTED', 'ACCEPTED', 'REJECTED'].includes(status)) {
-      return res.status(400).json({ error: 'A valid SHORTLISTED, ACCEPTED, or REJECTED status is required' });
+    if (!teamId || !requestId || !['PENDING', 'SHORTLISTED', 'ACCEPTED', 'REJECTED'].includes(status)) {
+      return res.status(400).json({ error: 'A valid PENDING, SHORTLISTED, ACCEPTED, or REJECTED status is required' });
     }
 
     const request = await prisma.$transaction(async (transaction) => {
@@ -443,59 +443,90 @@ router.patch('/:id/requests/:requestId', requireAuth, async (req: AuthenticatedR
       if (team.creatorId !== req.user!.id) throw new Error('FORBIDDEN');
       const joinRequest = await transaction.teamJoinRequest.findFirst({ where: { id: requestId, teamId } });
       if (!joinRequest) throw new Error('REQUEST_NOT_FOUND');
-      if (!['PENDING', 'SHORTLISTED'].includes(joinRequest.status)) throw new Error('INVALID_STATE');
+
+      // Legal state transitions:
+      // PENDING -> SHORTLISTED, ACCEPTED, REJECTED
+      // SHORTLISTED -> ACCEPTED, REJECTED, or back to PENDING (un-shortlist)
+      // Already ACCEPTED -> idempotent return if requesting ACCEPTED
+      if (joinRequest.status === 'ACCEPTED' && status === 'ACCEPTED') {
+        return joinRequest;
+      }
+      if (!['PENDING', 'SHORTLISTED'].includes(joinRequest.status) && joinRequest.status !== status) {
+        throw new Error('INVALID_STATE');
+      }
+
+      const existingMember = team.memberships.find((m: any) => m.userId === joinRequest.userId);
 
       if (status === 'ACCEPTED') {
         if (effectiveDeadline(team).getTime() <= Date.now()) throw new Error('EXPIRED');
-        if (team.memberships.some((member) => member.userId === joinRequest.userId)) throw new Error('ALREADY_MEMBER');
-        if (team.teamSize != null && team.memberships.length >= team.teamSize) throw new Error('TEAM_FULL');
         const role = getTeamRoles(team.roles).find((item) => item.title === joinRequest.roleAppliedFor);
-        if (!role) throw new Error('ROLE_UNAVAILABLE');
-        await transaction.teamPost.update({ where: { id: teamId }, data: { updatedAt: new Date() } });
-        const acceptedForRole = await transaction.teamMembership.count({ where: { teamId, position: role.title } });
-        if (acceptedForRole >= role.openings) throw new Error('ROLE_FULL');
-        await transaction.teamMembership.create({ data: { teamId, userId: joinRequest.userId, role: 'MEMBER', position: role.title } });
 
+        // If candidate is not already a member, enforce capacity checks and create membership
+        if (!existingMember) {
+          if (team.teamSize != null && team.memberships.length >= team.teamSize) throw new Error('TEAM_FULL');
+          if (role) {
+            const acceptedForRole = await transaction.teamMembership.count({ where: { teamId, position: role.title } });
+            if (acceptedForRole >= role.openings) throw new Error('ROLE_FULL');
+          }
+          await transaction.teamMembership.create({
+            data: {
+              teamId,
+              userId: joinRequest.userId,
+              role: 'MEMBER',
+              position: role?.title || joinRequest.roleAppliedFor || 'Member',
+            },
+          });
+        }
+
+        await transaction.teamPost.update({ where: { id: teamId }, data: { updatedAt: new Date() } });
+
+        // Ensure authorized conversation membership
         const contextKey = `TEAM:${team.id}`;
         const conversation = await transaction.conversation.upsert({
           where: { contextKey },
           update: {},
           create: { contextType: 'TEAM', contextId: team.id, contextKey },
         });
-        const participantIds = [...new Set([...team.memberships.map((member) => member.userId), joinRequest.userId])];
         await transaction.conversationMember.createMany({
-          data: participantIds.map((userId) => ({ conversationId: conversation.id, userId })),
+          data: [{ conversationId: conversation.id, userId: joinRequest.userId }],
           skipDuplicates: true,
         });
       }
 
+      // SHORTLISTED must NEVER create membership or grant chat access
       const updated = await transaction.teamJoinRequest.update({ where: { id: requestId }, data: { status } });
-      if (status === 'SHORTLISTED' || status === 'ACCEPTED' || status === 'REJECTED') await transaction.notification.create({
-        data: {
-          recipientId: joinRequest.userId,
-          type: status === 'ACCEPTED' ? 'TEAM_REQUEST_ACCEPTED' : status === 'REJECTED' ? 'TEAM_REQUEST_REJECTED' : 'TEAM_REQUEST_SHORTLISTED',
-          title: status === 'ACCEPTED' ? 'Team application accepted' : status === 'REJECTED' ? 'Team application declined' : 'Application shortlisted',
-          message: status === 'ACCEPTED'
-            ? `You were selected for ${joinRequest.roleAppliedFor || 'a role'} on ${team.title}.`
-            : status === 'REJECTED'
-              ? `Your application for ${joinRequest.roleAppliedFor || 'a role'} on ${team.title} was not selected.`
-              : `Your application for ${joinRequest.roleAppliedFor || 'a role'} on ${team.title} has been shortlisted.`,
-          relatedEntityType: 'TEAM',
-          relatedEntityId: team.id,
-        },
-      });
+
+      if (['SHORTLISTED', 'ACCEPTED', 'REJECTED'].includes(status)) {
+        await transaction.notification.create({
+          data: {
+            recipientId: joinRequest.userId,
+            type: status === 'ACCEPTED' ? 'TEAM_REQUEST_ACCEPTED' : status === 'REJECTED' ? 'TEAM_REQUEST_REJECTED' : 'TEAM_REQUEST_SHORTLISTED',
+            title: status === 'ACCEPTED' ? 'Team application accepted' : status === 'REJECTED' ? 'Team application declined' : 'Application shortlisted',
+            message: status === 'ACCEPTED'
+              ? `You were selected for ${joinRequest.roleAppliedFor || 'a role'} on ${team.title}.`
+              : status === 'REJECTED'
+                ? `Your application for ${joinRequest.roleAppliedFor || 'a role'} on ${team.title} was not selected.`
+                : `Your application for ${joinRequest.roleAppliedFor || 'a role'} on ${team.title} has been shortlisted.`,
+            relatedEntityType: 'TEAM',
+            relatedEntityId: team.id,
+          },
+        });
+      }
+
       return updated;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10000, timeout: 20000 });
 
-    res.json({ request });
+    res.json({ request, success: true });
   } catch (error) {
     if (error instanceof Error && error.message === 'NOT_FOUND') return res.status(404).json({ error: 'Team post not found' });
     if (error instanceof Error && error.message === 'REQUEST_NOT_FOUND') return res.status(404).json({ error: 'Join request not found' });
     if (error instanceof Error && error.message === 'FORBIDDEN') return res.status(403).json({ error: 'Only the team creator can manage requests' });
     if (error instanceof Error && error.message === 'EXPIRED') return res.status(409).json({ error: 'This recruitment post has expired; candidates cannot be selected' });
-    if (error instanceof Error && ['ROLE_FULL', 'ROLE_UNAVAILABLE'].includes(error.message)) return res.status(409).json({ error: error.message === 'ROLE_FULL' ? 'All openings for this role have been filled' : 'The selected role is no longer available' });
+    if (error instanceof Error && ['ROLE_FULL', 'ROLE_UNAVAILABLE'].includes(error.message)) {
+      return res.status(409).json({ error: error.message === 'ROLE_FULL' ? 'All openings for this role have been filled' : 'The selected role is no longer available' });
+    }
     if (isPrismaError(error, 'P2002') || isPrismaError(error, 'P2034')) return res.status(409).json({ error: 'Team capacity or membership changed; please refresh' });
-    if (error instanceof Error && ['INVALID_STATE', 'ALREADY_MEMBER', 'TEAM_FULL'].includes(error.message)) {
+    if (error instanceof Error && ['INVALID_STATE', 'TEAM_FULL'].includes(error.message)) {
       return res.status(409).json({ error: error.message.replace(/_/g, ' ').toLowerCase() });
     }
     console.error('Failed to update team request:', error);

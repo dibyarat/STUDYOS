@@ -64,13 +64,33 @@ export function deleteFromCloudinary(url: string): Promise<any> {
   });
 }
 
-export function buildAttachmentUrl(url: string, fileName?: string): string {
-  if (!url || !fileName || !url.includes('res.cloudinary.com')) return url;
-  if (url.includes('fl_attachment')) return url;
-  
-  const cleanName = fileName.trim().replace(/[^a-zA-Z0-9._-]/g, '_');
-  if (!cleanName) return url;
-
-  return url.replace('/upload/', `/upload/fl_attachment:${cleanName}/`);
+export function buildCleanPreviewUrl(url: string): string {
+  if (!url || typeof url !== 'string') return '';
+  // Strip any accidental fl_attachment segment that may have been baked in
+  return url.replace(/\/fl_attachment[^/]*\//g, '/');
 }
+
+export function buildAttachmentUrl(url: string, fileName?: string): string {
+  if (!url || typeof url !== 'string') return '';
+  const cleanUrl = buildCleanPreviewUrl(url);
+  if (!cleanUrl.includes('res.cloudinary.com')) return cleanUrl;
+
+  // Cloudinary's fl_attachment flag takes an OPTIONAL custom filename, but:
+  // 1. It MUST NOT contain file extensions or dots (e.g. .png causes "Invalid flag in transformation: png")
+  // 2. It must only contain alphanumeric characters, underscores, and hyphens.
+  if (!fileName) {
+    return cleanUrl.replace('/upload/', '/upload/fl_attachment/');
+  }
+
+  const lastDot = fileName.lastIndexOf('.');
+  const baseName = (lastDot > 0 ? fileName.substring(0, lastDot) : fileName).trim();
+  const safeBase = baseName.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
+
+  if (!safeBase) {
+    return cleanUrl.replace('/upload/', '/upload/fl_attachment/');
+  }
+
+  return cleanUrl.replace('/upload/', `/upload/fl_attachment:${safeBase}/`);
+}
+
 
