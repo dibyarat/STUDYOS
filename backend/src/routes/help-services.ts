@@ -305,11 +305,39 @@ router.patch('/requests/:requestId', requireAuth, async (req: AuthenticatedReque
       });
       if (!existing) throw new Error('NOT_FOUND');
 
-      const isProviderAction = ['ACCEPTED', 'REJECTED', 'IN_PROGRESS', 'COMPLETED'].includes(nextStatus);
-      if (isProviderAction && existing.providerId !== req.user!.id) throw new Error('FORBIDDEN');
-      if (nextStatus === 'CANCELLED' && ![existing.requesterId, existing.providerId].includes(req.user!.id)) throw new Error('FORBIDDEN');
-      if (!isProviderAction && nextStatus !== 'CANCELLED') throw new Error('INVALID_STATUS');
-      if (!(TRANSITIONS[existing.status] || []).includes(nextStatus)) throw new Error('INVALID_TRANSITION');
+      const isProvider = existing.providerId === req.user!.id;
+      const isRequester = existing.requesterId === req.user!.id;
+
+      // Idempotency: repeated clicks for current status return cleanly
+      if (existing.status === nextStatus) {
+        if (nextStatus === 'ACCEPTED') {
+          const contextKey = `HELP_REQUEST:${existing.id}`;
+          const conversation = await transaction.conversation.upsert({
+            where: { contextKey },
+            update: {},
+            create: { contextType: 'HELP_REQUEST', contextId: existing.id, contextKey },
+          });
+          await transaction.conversationMember.createMany({
+            data: [existing.requesterId, existing.providerId].map((userId) => ({ conversationId: conversation.id, userId })),
+            skipDuplicates: true,
+          });
+        }
+        return existing;
+      }
+
+      // Role and transition verification
+      if (nextStatus === 'ACCEPTED' || nextStatus === 'REJECTED') {
+        if (!isProvider) throw new Error('PROVIDER_ONLY');
+        if (existing.status !== 'PENDING') throw new Error('INVALID_TRANSITION');
+      } else if (nextStatus === 'CANCELLED') {
+        if (!isRequester && !isProvider) throw new Error('FORBIDDEN');
+        if (existing.status !== 'PENDING') throw new Error('INVALID_TRANSITION');
+      } else if (['IN_PROGRESS', 'COMPLETED'].includes(nextStatus)) {
+        if (!isProvider) throw new Error('PROVIDER_ONLY');
+        if (!(TRANSITIONS[existing.status] || []).includes(nextStatus)) throw new Error('INVALID_TRANSITION');
+      } else {
+        throw new Error('INVALID_STATUS');
+      }
 
       const updated = await transaction.helpRequest.update({ where: { id: requestId }, data: { status: nextStatus } });
       if (nextStatus === 'ACCEPTED') {
@@ -350,6 +378,7 @@ router.patch('/requests/:requestId', requireAuth, async (req: AuthenticatedReque
     res.json({ helpRequest });
   } catch (error) {
     if (error instanceof Error && error.message === 'NOT_FOUND') return res.status(404).json({ error: 'Help request not found' });
+    if (error instanceof Error && error.message === 'PROVIDER_ONLY') return res.status(403).json({ error: 'Only the service provider can accept or reject this request' });
     if (error instanceof Error && error.message === 'FORBIDDEN') return res.status(403).json({ error: 'You cannot update this help request' });
     if (error instanceof Error && ['INVALID_STATUS', 'INVALID_TRANSITION'].includes(error.message)) return res.status(409).json({ error: 'Invalid help request state transition' });
     if (prismaConflict(error)) return res.status(409).json({ error: 'Help request changed; refresh and try again' });

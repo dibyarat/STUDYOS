@@ -183,6 +183,7 @@ function App() {
   const [teamApplicationDialog, setTeamApplicationDialog] = useState(null)
   const [helpRequestDialog, setHelpRequestDialog] = useState(null)
   const [helpReviewDialog, setHelpReviewDialog] = useState(null)
+  const [updatingHelpRequestId, setUpdatingHelpRequestId] = useState(null)
   const [showJobModal, setShowJobModal] = useState(false)
   const [resources, setResources] = useState([])
   const [classes, setClasses] = useState([])
@@ -1337,6 +1338,8 @@ function App() {
   }
 
   const updateHelpRequest = async (requestId, status) => {
+    if (updatingHelpRequestId) return
+    setUpdatingHelpRequestId(requestId)
     try {
       await apiRequest(`/help-services/requests/${requestId}`, {
         method: 'PATCH',
@@ -1346,9 +1349,17 @@ function App() {
       const data = await apiRequest('/help-services/requests', { token: session?.access_token })
       setHelpRequests(data.requests || [])
       await refreshNotifications()
+      setActionNotice(
+        status === 'ACCEPTED' ? 'Help request accepted. You can now chat in private.' :
+        status === 'REJECTED' ? 'Help request declined.' :
+        status === 'CANCELLED' ? 'Help request cancelled.' :
+        'Request updated.'
+      )
     } catch (error) {
       console.error('Failed to update help request:', error)
-      window.alert(error.message || 'Unable to update this help request.')
+      setActionNotice(error.message || 'Unable to update this help request.')
+    } finally {
+      setUpdatingHelpRequestId(null)
     }
   }
 
@@ -1893,7 +1904,7 @@ function App() {
           {activePage === 'vault' && <Vault resources={filteredResources} search={vaultSearch} onSearch={(value) => { setVaultSearch(value); }} onAdd={() => { setResourceSaveError(''); setShowResourceModal(true) }} onDelete={deleteResource} onEdit={(item) => { setEditingResource(item); setResourceEditPaid(item.price != null) }} onUnpublish={unpublishResource} onToggleSave={toggleResourceSave} onReport={(id) => { setReportDialog(resources.find((item) => item.id === id) || null); setReportError('') }} onOpenFile={openResourceFile} onRate={(item) => { setRateError(''); setRateDialog(item) }} onViewDetail={(item) => setDetailResource(item)} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }} onNotice={setActionNotice} currentUserId={user?.id} token={session?.access_token} />}
           {activePage === 'classes' && <Classes classes={classes} currentUserId={user?.id} onAdd={() => { setEditingClass(null); setShowClassModal(true) }} onEdit={(item) => { setEditingClass(item); setShowClassModal(true) }} onDelete={deleteClass} onPublish={(item) => { setPublishDialog(item); setPublishMode('CLASS'); setPublishPaid(false); setPublishError('') }} expandedClassId={expandedClassId} onToggleExpanded={(id) => setExpandedClassId((current) => current === id ? null : id)} onAddTopic={(classId) => setTopicDialog({ classId, topic: null })} onEditTopic={(classId, topic) => setTopicDialog({ classId, topic })} onDeleteTopic={deleteTopic} onMoveTopic={reorderTopic} onAddMaterial={(classId, topicId) => { setClassResourceError(''); setClassResourceFileName(''); setResourceKind('RESOURCE'); setResourceDialog({ classId, topicId }) }} onRemoveMaterial={removeClassResource} onOpenFile={openResourceFile} />}
           {activePage === 'teams' && <TeamFinder posts={teamPosts} currentUserId={user?.id} onCreate={() => { setEditingTeam(null); setShowTeamModal(true) }} onEdit={(post) => { setEditingTeam(post); setShowTeamModal(true) }} onDelete={deleteTeam} onJoin={(teamId) => setTeamApplicationDialog(teamPosts.find((post) => post.id === teamId) || null)} onWithdraw={withdrawTeamRequest} onRepost={repostTeam} onManageRequests={openTeamRequests} onOpenConversation={openConversation} myApplications={myApplications} myApplicationsLoading={myApplicationsLoading} onLoadMyApplications={loadMyApplications} showApplications={myApplicationsOpen} onToggleApplications={(show) => { setMyApplicationsOpen(show); if (show) loadMyApplications() }} />}
-          {activePage === 'skills' && <SkillsMarketplace jobs={jobs} skills={skills} helpRequests={helpRequests} currentUserId={user?.id} onAddSkill={addSkill} onUpdateSkill={updateSkillProfile} onRemoveSkill={removeSkill} onCreate={() => { setEditingJob(null); setShowJobModal(true) }} onEdit={(job) => { setEditingJob(job); setShowJobModal(true) }} onClaim={(serviceId) => setHelpRequestDialog(jobs.find((job) => job.id === serviceId) || null)} onUpdateRequest={updateHelpRequest} onRateRequest={(requestId) => setHelpReviewDialog(helpRequests.find((request) => request.id === requestId) || null)} onDelete={deleteJob} onOpenConversation={openConversation} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }} />}
+          {activePage === 'skills' && <SkillsMarketplace jobs={jobs} skills={skills} helpRequests={helpRequests} currentUserId={user?.id} onAddSkill={addSkill} onUpdateSkill={updateSkillProfile} onRemoveSkill={removeSkill} onCreate={() => { setEditingJob(null); setShowJobModal(true) }} onEdit={(job) => { setEditingJob(job); setShowJobModal(true) }} onClaim={(serviceId) => setHelpRequestDialog(jobs.find((job) => job.id === serviceId) || null)} onUpdateRequest={updateHelpRequest} onRateRequest={(requestId) => setHelpReviewDialog(helpRequests.find((request) => request.id === requestId) || null)} onDelete={deleteJob} onOpenConversation={openConversation} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }} updatingRequestId={updatingHelpRequestId} />}
           {activePage === 'account' && <AccountSettings />}
           {activePage === 'profile' && <PublicProfile profileId={selectedPublicProfileId} token={session?.access_token} onBack={() => go('dashboard')} />}
           {activePage === 'messages' && <MessagesPage key={selectedConversationId || 'messages'} token={session?.access_token} currentUserId={user?.id} initialConversationId={selectedConversationId} />}
@@ -3004,7 +3015,7 @@ function ReviewForm({ request, onSubmit, onClose }) {
   </form>
 }
 
-function SkillsMarketplace({ jobs, skills, helpRequests, currentUserId, onAddSkill, onUpdateSkill, onRemoveSkill, onCreate, onEdit, onClaim, onUpdateRequest, onRateRequest, onDelete, onOpenConversation, onOpenProfile }) {
+function SkillsMarketplace({ jobs, skills, helpRequests, currentUserId, onAddSkill, onUpdateSkill, onRemoveSkill, onCreate, onEdit, onClaim, onUpdateRequest, onRateRequest, onDelete, onOpenConversation, onOpenProfile, updatingRequestId }) {
   const openJobs = jobs.filter((job) => job.status === 'OPEN').length
   const activeJobs = helpRequests.filter((request) => ['ACCEPTED', 'IN_PROGRESS'].includes(request.status)).length
   return <section className="skills-page">
@@ -3016,7 +3027,21 @@ function SkillsMarketplace({ jobs, skills, helpRequests, currentUserId, onAddSki
     </section>
     <div className="market-toolbar"><div><strong>Browse help services</strong><p>Find work that matches what you know.</p></div><span>Ratings are based on completed, verified interactions</span></div>
     {jobs.length ? <div className="job-grid">{jobs.map((job) => <JobCard key={job.id} job={job} currentUserId={currentUserId} helpRequest={helpRequests.find((request) => request.serviceId === job.id && request.requesterId === currentUserId)} onClaim={onClaim} onEdit={onEdit} onDelete={onDelete} onOpenProfile={onOpenProfile} />)}</div> : <div className="team-empty job-empty"><Sparkles size={30} /><strong>No help services yet</strong><p>Offer the first academic service to help another student.</p><button className="button primary" onClick={onCreate}><Plus size={16} /> Offer a service</button></div>}
-    <section className="help-request-list"><div className="market-toolbar"><div><strong>My help interactions</strong><p>Requests you made or received.</p></div></div>{helpRequests.length ? helpRequests.map((request) => <HelpRequestRow key={request.id} request={request} currentUserId={currentUserId} onTransition={onUpdateRequest} onRate={onRateRequest} onOpenConversation={onOpenConversation} onOpenProfile={onOpenProfile} />) : <p className="class-topic-empty">No help interactions yet.</p>}</section>
+    <section className="help-request-list">
+      <div className="market-toolbar"><div><strong>My help interactions</strong><p>Requests you made or received.</p></div></div>
+      {helpRequests.length ? helpRequests.map((request) => (
+        <HelpRequestRow
+          key={request.id}
+          request={request}
+          currentUserId={currentUserId}
+          onTransition={onUpdateRequest}
+          onRate={onRateRequest}
+          onOpenConversation={onOpenConversation}
+          onOpenProfile={onOpenProfile}
+          updatingRequestId={updatingRequestId}
+        />
+      )) : <p className="class-topic-empty">No help interactions yet.</p>}
+    </section>
   </section>
 }
 
@@ -3027,19 +3052,66 @@ function JobCard({ job, currentUserId, helpRequest, onClaim, onEdit, onDelete, o
   return <article className="job-card"><div className="job-top"><span className="type-pill">{job.categoryLabel}</span><span className="job-status" aria-label={`${job.ratingCount || 0} persisted reviews${job.ratingCount ? `, average ${job.averageRating.toFixed(1)} out of 5` : ''}`}>{job.ratingCount ? `${job.averageRating.toFixed(1)} ★ · ${job.ratingCount} review${job.ratingCount === 1 ? '' : 's'}` : 'No reviews yet'}</span></div><h2>{job.title}</h2><p className="job-description">{job.description}</p>{job.deliverables && <p className="job-description"><strong>Deliverables:</strong> {job.deliverables}</p>}<div className="job-skill"><Sparkles size={14} /> <strong>{job.skills || 'General help'}</strong></div><div className="job-details"><span><BriefcaseBusiness size={14} /> {job.budget}{job.paymentMethod ? ` · ${job.paymentMethod}` : ''}</span><span><Clock3 size={14} /> {job.expectedTimeline || job.availability || 'Flexible schedule'}</span></div>{(job.preferredSchedule || job.responseTime) && <div className="job-details">{job.preferredSchedule && <span>Schedule: {job.preferredSchedule}</span>}{job.responseTime && <span>Response: {job.responseTime}</span>}</div>}<div className="job-footer"><div><button type="button" className="profile-link-button" disabled={isOwner || !job.providerId} onClick={() => onOpenProfile(job.providerId)}>{job.provider?.name || 'Student'}</button><small>{job.availability || 'Academic help service'}</small></div><div className="post-actions">{!isOwner && job.providerId && <button className="button ghost" onClick={() => onOpenProfile(job.providerId)}>View profile</button>}{isOwner ? <><button className="icon-button" aria-label="Edit help service" title="Edit service" onClick={() => onEdit(job)}><Pencil size={14} /></button><button className="icon-danger" aria-label="Delete help service" title="Delete service" onClick={() => onDelete(job.id)}><Trash2 size={15} /></button></> : helpRequest && !closedRequest ? <span className="job-status">{requestLabel}</span> : <button className="button primary" onClick={() => onClaim(job.id)}>Request help <ArrowRight size={14} /></button>}</div></div></article>
 }
 
-function HelpRequestRow({ request, currentUserId, onTransition, onRate, onOpenConversation, onOpenProfile }) {
-  const isProvider = request.providerId === currentUserId
+function HelpRequestRow({ request, currentUserId, onTransition, onRate, onOpenConversation, onOpenProfile, updatingRequestId }) {
+  const isProvider = String(request.providerId) === String(currentUserId)
+  const isRequester = String(request.requesterId) === String(currentUserId)
   const otherParty = isProvider ? request.requester?.name : request.provider?.name
+  const isUpdating = updatingRequestId === request.id
+
   const actions = []
-  if (isProvider && request.status === 'PENDING') actions.push(['ACCEPTED', 'Accept'], ['REJECTED', 'Reject'])
-  if (isProvider && request.status === 'ACCEPTED') actions.push(['IN_PROGRESS', 'Start'])
-  if (isProvider && request.status === 'IN_PROGRESS') actions.push(['COMPLETED', 'Complete'])
-  if (!['COMPLETED', 'REJECTED', 'CANCELLED'].includes(request.status)) actions.push(['CANCELLED', 'Cancel'])
+  if (isProvider) {
+    if (request.status === 'PENDING') {
+      actions.push(['ACCEPTED', 'Accept'], ['REJECTED', 'Reject'])
+    } else if (request.status === 'ACCEPTED') {
+      actions.push(['IN_PROGRESS', 'Start interaction'], ['CANCELLED', 'Cancel'])
+    } else if (request.status === 'IN_PROGRESS') {
+      actions.push(['COMPLETED', 'Mark complete'], ['CANCELLED', 'Cancel'])
+    }
+  } else if (isRequester) {
+    if (['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(request.status)) {
+      actions.push(['CANCELLED', 'Cancel request'])
+    }
+  }
+
+  const statusBadge = () => {
+    switch (request.status) {
+      case 'PENDING':
+        return <span className="team-status" style={{ background: '#fef3c7', color: '#92400e' }}>Pending review</span>
+      case 'ACCEPTED':
+        return <span className="team-status" style={{ background: '#dcfce7', color: '#166534' }}>✓ Accepted</span>
+      case 'IN_PROGRESS':
+        return <span className="team-status" style={{ background: '#e0e7ff', color: '#3730a3' }}>In progress</span>
+      case 'COMPLETED':
+        return <span className="team-status" style={{ background: '#f3e8ff', color: '#6b21a8' }}>✓ Completed</span>
+      case 'REJECTED':
+        return <span className="team-status" style={{ background: '#fee2e2', color: '#991b1b' }}>Declined</span>
+      case 'CANCELLED':
+        return <span className="team-status" style={{ background: '#f1f5f9', color: '#64748b' }}>Cancelled</span>
+      default:
+        return <span className="team-status">{request.status.replace(/_/g, ' ')}</span>
+    }
+  }
+
   return <article className="help-request-row">
     <div>
-      <strong>{request.service?.title || 'Help service'}</strong>
-      <p>{isProvider ? 'Requested by' : 'Provided by'} <button className="profile-link-button" type="button" disabled={isProvider ? !request.requesterId : !request.providerId} onClick={() => onOpenProfile(isProvider ? request.requesterId : request.providerId)}>{otherParty || 'Student'}</button> · {request.status.replace(/_/g, ' ')}</p>
-      <details className="help-request-details"><summary>Request details</summary>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+        <strong>{request.service?.title || 'Help service'}</strong>
+        {statusBadge()}
+      </div>
+      <p>
+        {isProvider ? 'Requested by' : 'Offered by'}{' '}
+        <button
+          className="profile-link-button"
+          type="button"
+          disabled={isProvider ? !request.requesterId : !request.providerId}
+          onClick={() => onOpenProfile(isProvider ? request.requesterId : request.providerId)}
+        >
+          {otherParty || 'Student'}
+        </button>
+        {request.createdAt && <span> · {new Date(request.createdAt).toLocaleDateString()}</span>}
+      </p>
+      <details className="help-request-details">
+        <summary>Request details</summary>
         {request.message && <p><strong>Help needed:</strong> {request.message}</p>}
         {request.triedSoFar && <p><strong>Already tried:</strong> {request.triedSoFar}</p>}
         {request.projectContext && <p><strong>Context:</strong> {request.projectContext}</p>}
@@ -3049,9 +3121,31 @@ function HelpRequestRow({ request, currentUserId, onTransition, onRate, onOpenCo
       </details>
     </div>
     <div className="post-actions">
-      {actions.map(([status, label]) => <button key={status} className={status === 'REJECTED' || status === 'CANCELLED' ? 'button secondary' : 'button primary'} onClick={() => onTransition(request.id, status)}>{label}</button>)}
-      {['ACCEPTED', 'IN_PROGRESS', 'COMPLETED'].includes(request.status) && <button className="button ghost" onClick={() => onOpenConversation('HELP_REQUEST', request.id)}>Open conversation</button>}
-      {request.status === 'COMPLETED' && !isProvider && !request.review && <button className="button primary" onClick={() => onRate(request.id)}>Rate service</button>}
+      {actions.map(([status, label]) => (
+        <button
+          key={status}
+          className={status === 'REJECTED' || status === 'CANCELLED' ? 'button secondary' : 'button primary'}
+          disabled={Boolean(updatingRequestId)}
+          onClick={() => onTransition(request.id, status)}
+        >
+          {isUpdating ? 'Updating…' : label}
+        </button>
+      ))}
+      {['ACCEPTED', 'IN_PROGRESS', 'COMPLETED'].includes(request.status) && (
+        <button
+          className="button ghost"
+          onClick={() => onOpenConversation('HELP_REQUEST', request.id)}
+          title="Open private conversation"
+        >
+          <MessageSquare size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+          Open conversation
+        </button>
+      )}
+      {request.status === 'COMPLETED' && !isProvider && !request.review && (
+        <button className="button primary" onClick={() => onRate(request.id)}>
+          Rate service
+        </button>
+      )}
       {request.review && <span className="job-status">Rated {request.review.rating}/5</span>}
     </div>
   </article>

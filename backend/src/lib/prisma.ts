@@ -332,6 +332,20 @@ export class FirestoreCollection<T extends Record<string, any> = Record<string, 
     return args.select ? applySelect(resolved, args.select) : resolved;
   }
 
+  async createMany(args: { data: any[]; skipDuplicates?: boolean }): Promise<{ count: number }> {
+    const list = Array.isArray(args.data) ? args.data : [args.data];
+    let count = 0;
+    for (const item of list) {
+      try {
+        await this.create({ data: item });
+        count++;
+      } catch (e) {
+        if (!args.skipDuplicates) throw e;
+      }
+    }
+    return { count };
+  }
+
   async update(args: { where: any; data: any; select?: any; include?: any }): Promise<any> {
     const existing = await this.findFirst({ where: args.where });
     if (!existing) {
@@ -656,6 +670,16 @@ export class FirestoreCollection<T extends Record<string, any> = Record<string, 
         resolved.requester = user ? applySelect(user, include.requester.select || include.requester) : null;
       } else {
         resolved.requester = null;
+      }
+    }
+
+    if (include.provider) {
+      const providerId = item.providerId;
+      if (providerId) {
+        const user = await prisma.user.findUnique({ where: { id: providerId } });
+        resolved.provider = user ? applySelect(user, include.provider.select || include.provider) : null;
+      } else {
+        resolved.provider = null;
       }
     }
 
