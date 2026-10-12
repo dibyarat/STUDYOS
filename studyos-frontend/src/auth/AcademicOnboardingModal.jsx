@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GraduationCap, Sparkles, X, CheckCircle2 } from 'lucide-react';
 import { apiRequest } from '../lib/api.js';
 
@@ -25,6 +25,42 @@ export default function AcademicOnboardingModal({
     gender: initialIdentity.gender || initialProfile.gender || 'Prefer not to say',
     tonePreference: initialIdentity.tonePreference || 'buddy',
   });
+
+  const [institutions, setInstitutions] = useState([]);
+  const [loadingInstitutions, setLoadingInstitutions] = useState(false);
+  const [customInstitutionMode, setCustomInstitutionMode] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (isOpen) {
+      setLoadingInstitutions(true);
+      apiRequest('/institutions', { token })
+        .then((res) => {
+          if (!active) return;
+          const list = Array.isArray(res) ? res : res?.institutions || [];
+          setInstitutions(list);
+          if (formData.institution) {
+            const matches = list.some(
+              (i) =>
+                i.name?.toLowerCase() === formData.institution.toLowerCase() ||
+                i.code?.toLowerCase() === formData.institution.toLowerCase()
+            );
+            if (!matches) {
+              setCustomInstitutionMode(true);
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not load institutions:', err);
+        })
+        .finally(() => {
+          if (active) setLoadingInstitutions(false);
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [isOpen, token]);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -136,13 +172,72 @@ export default function AcademicOnboardingModal({
 
           <label>
             College / Institution
-            <input
-              name="institution"
-              required
-              value={formData.institution}
-              onChange={handleChange}
-              placeholder="e.g. Stanford University / Tech Institute"
-            />
+            {institutions.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                <select
+                  value={
+                    customInstitutionMode
+                      ? '__CUSTOM__'
+                      : institutions.find(
+                          (i) =>
+                            i.name?.toLowerCase() === (formData.institution || '').trim().toLowerCase() ||
+                            i.code?.toLowerCase() === (formData.institution || '').trim().toLowerCase()
+                        )
+                      ? institutions.find(
+                          (i) =>
+                            i.name?.toLowerCase() === (formData.institution || '').trim().toLowerCase() ||
+                            i.code?.toLowerCase() === (formData.institution || '').trim().toLowerCase()
+                        ).id
+                      : formData.institution
+                      ? '__CUSTOM__'
+                      : ''
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '__CUSTOM__') {
+                      setCustomInstitutionMode(true);
+                    } else if (val) {
+                      setCustomInstitutionMode(false);
+                      const inst = institutions.find((i) => i.id === val);
+                      if (inst) {
+                        setFormData((prev) => ({ ...prev, institution: inst.name }));
+                      }
+                    } else {
+                      setCustomInstitutionMode(false);
+                      setFormData((prev) => ({ ...prev, institution: '' }));
+                    }
+                  }}
+                  required={!customInstitutionMode}
+                >
+                  <option value="">-- Select your institution --</option>
+                  {institutions.map((inst) => (
+                    <option key={inst.id} value={inst.id}>
+                      {inst.name} ({inst.code})
+                    </option>
+                  ))}
+                  <option value="__CUSTOM__">Other / Enter manually...</option>
+                </select>
+
+                {customInstitutionMode && (
+                  <input
+                    name="institution"
+                    required
+                    value={formData.institution}
+                    onChange={handleChange}
+                    placeholder="Enter custom college / university name"
+                    autoFocus
+                  />
+                )}
+              </div>
+            ) : (
+              <input
+                name="institution"
+                required
+                value={formData.institution}
+                onChange={handleChange}
+                placeholder={loadingInstitutions ? 'Loading available institutions...' : 'e.g. Centurion University / Tech Institute'}
+              />
+            )}
           </label>
 
           <div className="form-row">

@@ -3412,18 +3412,38 @@ function AccountSettings() {
     isPublic: Boolean(identity.isPublic ?? campusProfile?.isPublic ?? true),
   });
 
+  const [institutions, setInstitutions] = useState([]);
+  const [customInstitutionMode, setCustomInstitutionMode] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    apiRequest('/institutions', { token: session?.access_token })
+      .then((res) => {
+        if (!active) return;
+        const list = Array.isArray(res) ? res : res?.institutions || [];
+        setInstitutions(list);
+      })
+      .catch((err) => {
+        console.warn('Could not load institutions in AccountSettings:', err);
+      });
+    return () => {
+      active = false;
+    };
+  }, [session?.access_token]);
+
   useEffect(() => {
     const ident = globalProfile?.academicIdentity || {};
     const cp = globalProfile?.profile || {};
     const inst = globalProfile?.Institution || {};
     const st = globalProfile?.student || {};
+    const currentInst = cp.institution || ident.institution || inst.name || inst.code || '';
     setProfile({
       name: cp.fullName || globalProfile?.name || user?.user_metadata?.name || '',
       avatarUrl: cp.avatarUrl || globalProfile?.avatarUrl || '',
       rollNumber: cp.rollNumber || st.rollNumber || '',
       section: cp.section || st.section?.name || '',
       department: cp.department || st.section?.department?.name || ident.branch || '',
-      institution: cp.institution || ident.institution || inst.name || inst.code || '',
+      institution: currentInst,
       semester: cp.semester || st.semester || ident.semester || '',
       year: cp.year || ident.year || '3rd Year',
       residency: cp.residency || 'DAY_SCHOLAR',
@@ -3525,12 +3545,69 @@ function AccountSettings() {
             </label>
             <label>
               College / Institution
-              <input
-                name="institution"
-                value={profile.institution}
-                onChange={update}
-                placeholder="e.g. Stanford University"
-              />
+              {institutions.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                  <select
+                    value={
+                      customInstitutionMode
+                        ? '__CUSTOM__'
+                        : institutions.find(
+                            (i) =>
+                              i.name?.toLowerCase() === (profile.institution || '').trim().toLowerCase() ||
+                              i.code?.toLowerCase() === (profile.institution || '').trim().toLowerCase()
+                          )
+                        ? institutions.find(
+                            (i) =>
+                              i.name?.toLowerCase() === (profile.institution || '').trim().toLowerCase() ||
+                              i.code?.toLowerCase() === (profile.institution || '').trim().toLowerCase()
+                          ).id
+                        : profile.institution
+                        ? '__CUSTOM__'
+                        : ''
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '__CUSTOM__') {
+                        setCustomInstitutionMode(true);
+                      } else if (val) {
+                        setCustomInstitutionMode(false);
+                        const inst = institutions.find((i) => i.id === val);
+                        if (inst) {
+                          setProfile((current) => ({ ...current, institution: inst.name }));
+                        }
+                      } else {
+                        setCustomInstitutionMode(false);
+                        setProfile((current) => ({ ...current, institution: '' }));
+                      }
+                    }}
+                  >
+                    <option value="">-- Select your institution --</option>
+                    {institutions.map((inst) => (
+                      <option key={inst.id} value={inst.id}>
+                        {inst.name} ({inst.code})
+                      </option>
+                    ))}
+                    <option value="__CUSTOM__">Other / Enter manually...</option>
+                  </select>
+
+                  {customInstitutionMode && (
+                    <input
+                      name="institution"
+                      value={profile.institution}
+                      onChange={update}
+                      placeholder="Enter custom college / university name"
+                      autoFocus
+                    />
+                  )}
+                </div>
+              ) : (
+                <input
+                  name="institution"
+                  value={profile.institution}
+                  onChange={update}
+                  placeholder="e.g. Stanford University"
+                />
+              )}
             </label>
             <label>
               Department / Branch

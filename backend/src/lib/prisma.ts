@@ -572,7 +572,24 @@ export class FirestoreCollection<T extends Record<string, any> = Record<string, 
     }
 
     if (include.Institution) {
-      resolved.Institution = null;
+      if (item.institutionId) {
+        resolved.Institution = await prisma.institution.findUnique({ where: { id: item.institutionId } });
+      } else {
+        const ai = resolved.academicIdentity || (await prisma.academicIdentity.findFirst({ where: { userId: item.id } }));
+        const instName = ai?.institution || item.profile?.institution;
+        if (instName) {
+          const allInst = await prisma.institution.findMany({});
+          const matched = allInst.find(
+            (inst: any) =>
+              inst.name?.toLowerCase() === String(instName).toLowerCase() ||
+              inst.code?.toLowerCase() === String(instName).toLowerCase() ||
+              `${inst.name} (${inst.code})`.toLowerCase() === String(instName).toLowerCase()
+          );
+          resolved.Institution = matched || null;
+        } else {
+          resolved.Institution = null;
+        }
+      }
     }
 
     if (include.files) {

@@ -102,6 +102,16 @@ app.use('/api/v1/studyos/projects', projectsRouter);
 app.use('/api/v1/studyos/timetable', timetableRouter);
 app.use('/api/v1/studyos/attendance', attendanceRouter);
 
+app.get(['/api/v1/studyos/institutions', '/institutions'], async (_req, res) => {
+  try {
+    const institutions = await prisma.institution.findMany({});
+    res.json(institutions);
+  } catch (error) {
+    console.error('Failed to load institutions:', error);
+    res.status(500).json({ error: 'Unable to load institutions' });
+  }
+});
+
 app.get('/api/v1/studyos/dashboard/summary', requireAuth, async (_req, res) => {
   try {
     const [teamPosts, helpServices] = await Promise.all([
@@ -423,6 +433,29 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
         : (existingUser?.profile?.residency || (existingUser?.studentType === 'HOSTELLER' ? 'HOSTELER' : (existingUser?.studentType === 'DAY_SCHOLAR' ? 'DAY_SCHOLAR' : null)));
       const studentType = normResidency === 'HOSTELER' ? 'HOSTELLER' : (normResidency === 'DAY_SCHOLAR' ? 'DAY_SCHOLAR' : null);
 
+      let resolvedInstitution = input.institution;
+      let matchedInstitutionId: string | null = null;
+      if (body.institutionId || input.institution) {
+        try {
+          const allInst = await transaction.institution.findMany({});
+          const matched = allInst.find(
+            (i: any) =>
+              (body.institutionId && i.id === body.institutionId) ||
+              (input.institution && (
+                i.name?.toLowerCase() === input.institution.toLowerCase() ||
+                i.code?.toLowerCase() === input.institution.toLowerCase() ||
+                `${i.name} (${i.code})`.toLowerCase() === input.institution.toLowerCase()
+              ))
+          );
+          if (matched) {
+            matchedInstitutionId = matched.id;
+            resolvedInstitution = matched.name;
+          }
+        } catch (e) {
+          console.warn('Could not match institution:', e);
+        }
+      }
+
       const user = await transaction.user.update({
         where: { id: userId },
         data: {
@@ -431,6 +464,7 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
           gender: input.gender ?? existingUser?.gender ?? null,
           tonePreference: input.tonePreference,
           studentType,
+          ...(matchedInstitutionId ? { institutionId: matchedInstitutionId } : {}),
         },
       });
       await transaction.profile.upsert({
@@ -446,6 +480,7 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
           residency: normResidency,
           studentType,
           gender: input.gender ?? existingUser?.profile?.gender ?? null,
+          ...(resolvedInstitution !== undefined ? { institution: resolvedInstitution } : {}),
         },
         create: {
           userId,
@@ -459,6 +494,7 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
           residency: normResidency ?? 'DAY_SCHOLAR',
           studentType: studentType ?? 'DAY_SCHOLAR',
           gender: input.gender ?? null,
+          institution: resolvedInstitution ?? null,
         },
       });
       const academicIdentity = await transaction.academicIdentity.upsert({
@@ -468,7 +504,7 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
           stream: input.stream,
           branch: input.branch,
           specialization: input.specialization,
-          institution: input.institution,
+          institution: resolvedInstitution !== undefined ? resolvedInstitution : input.institution,
           year: input.year,
           semester: input.semester,
           session: input.session,
