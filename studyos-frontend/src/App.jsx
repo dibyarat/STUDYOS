@@ -9,7 +9,6 @@ import {
   BriefcaseBusiness,
   BookOpen,
   Bookmark,
-  Calendar,
   ChevronDown,
   ChevronUp,
   Clock3,
@@ -51,10 +50,6 @@ import './StudyOS-messages.css'
 import './StudyOS-projects.css'
 import './StudyOS-final.css'
 import './StudyOS-polish.css'
-import './StudyOS-timetable-attendance.css'
-import TimetablePage from './timetable/TimetablePage.jsx'
-import AttendancePage from './attendance/AttendancePage.jsx'
-import DashboardAttendanceWidget from './attendance/DashboardAttendanceWidget.jsx'
 import AcademicOnboardingModal from './auth/AcademicOnboardingModal.jsx'
 import FileViewerModal from './components/FileViewerModal.jsx'
 import studyosMark from './assets/studyos-mark.png'
@@ -62,8 +57,6 @@ import campassistIcon from './assets/campassist-icon.png'
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, key: 'dashboard' },
-  { label: 'Timetable', icon: Calendar, key: 'timetable' },
-  { label: 'Attendance', icon: Clock3, key: 'attendance' },
   { label: 'Virtual Study Classes', icon: BookOpen, key: 'classes' },
   { label: 'Study Notes Vault', icon: Library, key: 'vault' },
   { label: 'Projects & Lab Repository', icon: FolderKanban, key: 'projects' },
@@ -1899,8 +1892,6 @@ function App() {
           {notificationsError && <div className={`data-load-warning ${sessionExpired ? 'session-expired' : ''}`} role="alert">{notificationsError}{sessionExpired ? <button className="button secondary" onClick={signOut}>Sign out</button> : <button className="button ghost" disabled={retryingSection === 'notifications'} onClick={() => { setRetryingSection('notifications'); refreshNotifications().finally(() => setRetryingSection('')) }}>{retryingSection === 'notifications' ? 'Retrying…' : 'Retry notifications'}</button>}</div>}
           {dataLoadError && ['teams', 'skills', 'projects'].includes(activePage) && <div className="data-load-warning" role="alert">{dataLoadError} <button className="button ghost" disabled={retryingSection === activePage} onClick={() => retryLoad(activePage)}>{retryingSection === activePage ? 'Retrying…' : 'Retry'}</button></div>}
           {activePage === 'dashboard' && <Dashboard classes={classes} resources={filteredResources} teamPostCount={teamPostCount} helpServiceCount={helpServiceCount} onAddResource={() => { setResourceSaveError(''); setShowResourceModal(true) }} onAddClass={() => setShowClassModal(true)} onNavigate={go} userName={userName} currentUserId={user?.id} token={session?.access_token} resourcesError={resourcesError} classesError={classesError} summaryError={summaryError} onRetry={retryLoad} retryingSection={retryingSection} />}
-          {activePage === 'timetable' && <TimetablePage user={user} profile={profile} token={session?.access_token} onNavigateToAttendance={() => go('attendance')} />}
-          {activePage === 'attendance' && <AttendancePage user={user} profile={profile} token={session?.access_token} onNavigateToTimetable={() => go('timetable')} />}
           {activePage === 'vault' && <Vault resources={filteredResources} search={vaultSearch} onSearch={(value) => { setVaultSearch(value); }} onAdd={() => { setResourceSaveError(''); setShowResourceModal(true) }} onDelete={deleteResource} onEdit={(item) => { setEditingResource(item); setResourceEditPaid(item.price != null) }} onUnpublish={unpublishResource} onToggleSave={toggleResourceSave} onReport={(id) => { setReportDialog(resources.find((item) => item.id === id) || null); setReportError('') }} onOpenFile={openResourceFile} onRate={(item) => { setRateError(''); setRateDialog(item) }} onViewDetail={(item) => setDetailResource(item)} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }} onNotice={setActionNotice} currentUserId={user?.id} token={session?.access_token} />}
           {activePage === 'classes' && <Classes classes={classes} currentUserId={user?.id} onAdd={() => { setEditingClass(null); setShowClassModal(true) }} onEdit={(item) => { setEditingClass(item); setShowClassModal(true) }} onDelete={deleteClass} onPublish={(item) => { setPublishDialog(item); setPublishMode('CLASS'); setPublishPaid(false); setPublishError('') }} expandedClassId={expandedClassId} onToggleExpanded={(id) => setExpandedClassId((current) => current === id ? null : id)} onAddTopic={(classId) => setTopicDialog({ classId, topic: null })} onEditTopic={(classId, topic) => setTopicDialog({ classId, topic })} onDeleteTopic={deleteTopic} onMoveTopic={reorderTopic} onAddMaterial={(classId, topicId) => { setClassResourceError(''); setClassResourceFileName(''); setResourceKind('RESOURCE'); setResourceDialog({ classId, topicId }) }} onRemoveMaterial={removeClassResource} onOpenFile={openResourceFile} />}
           {activePage === 'teams' && <TeamFinder posts={teamPosts} currentUserId={user?.id} onCreate={() => { setEditingTeam(null); setShowTeamModal(true) }} onEdit={(post) => { setEditingTeam(post); setShowTeamModal(true) }} onDelete={deleteTeam} onJoin={(teamId) => setTeamApplicationDialog(teamPosts.find((post) => post.id === teamId) || null)} onWithdraw={withdrawTeamRequest} onRepost={repostTeam} onManageRequests={openTeamRequests} onOpenConversation={openConversation} myApplications={myApplications} myApplicationsLoading={myApplicationsLoading} onLoadMyApplications={loadMyApplications} showApplications={myApplicationsOpen} onToggleApplications={(show) => { setMyApplicationsOpen(show); if (show) loadMyApplications() }} />}
@@ -2383,12 +2374,6 @@ function Dashboard({ classes, resources, teamPostCount, helpServiceCount, onAddR
       <div className="stat-grid"><Stat label="My Classes" value={`${classCount} / 10`} icon={BookOpen} tone="green" /><Stat label="Saved Resources" value={String(savedCount)} icon={Bookmark} tone="blue" /><Stat label="My Contributions" value={String(myResourceCount)} icon={Star} tone="yellow" /><Stat label="Open Teams" value={String(teamPostCount)} icon={UsersRound} tone="pink" /><Stat label="Help Services" value={String(helpServiceCount)} icon={MessageSquare} tone="mint" /></div>
     )}
 
-    {token && (
-      <div style={{ margin: '16px 0' }}>
-        <DashboardAttendanceWidget token={token} onNavigate={onNavigate} />
-      </div>
-    )}
-    
     <section className="section-card classes-section">
       <SectionHeader title="My Virtual Study Classes" action="View all" onClick={() => onNavigate('classes')} />
       {classesError ? (

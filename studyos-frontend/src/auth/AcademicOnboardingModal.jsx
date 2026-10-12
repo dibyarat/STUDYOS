@@ -88,7 +88,7 @@ export default function AcademicOnboardingModal({
     if (!token || !user?.id) return;
 
     if (!formData.section.trim()) {
-      setError('Please provide your Section (e.g. A, B, or CSE-1) so your timetable syncs correctly.');
+      setError('Please provide your Section (e.g. A, B, or CSE-1) so your academic profile syncs correctly.');
       return;
     }
 
@@ -130,7 +130,7 @@ export default function AcademicOnboardingModal({
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <GraduationCap size={22} color="#0284c7" />
-            <h2>Academic Profile & Timetable Setup</h2>
+            <h2>Academic Profile Setup</h2>
           </div>
           <button type="button" className="close-button" onClick={onClose}>
             <X size={18} />
@@ -141,8 +141,8 @@ export default function AcademicOnboardingModal({
           <div className="onboarding-intro-badge">
             <Sparkles size={24} color="#ec4899" style={{ flexShrink: 0 }} />
             <p style={{ margin: 0, fontSize: '0.85rem', color: '#1e293b', lineHeight: '1.45' }}>
-              Welcome to StudyOS! Set up your academic section and details once to automatically link
-              your section's timetable, attendance tracking, and peer collaboration.
+              Welcome to StudyOS! Set up your academic section and details to connect with
+              classmates, shared study vaults, and peer collaboration.
             </p>
           </div>
 
@@ -283,7 +283,7 @@ export default function AcademicOnboardingModal({
                 onChange={handleChange}
                 placeholder="e.g. A, B, or CSE-1"
               />
-              <small style={{ color: '#64748b' }}>Used to connect your class timetable</small>
+              <small style={{ color: '#64748b' }}>Used to connect with your section classmates and resources</small>
             </label>
           </div>
 
@@ -315,7 +315,7 @@ export default function AcademicOnboardingModal({
               <option value="neutral">Neutral (Formal & informative)</option>
             </select>
             <small style={{ color: '#64748b' }}>
-              Used in attendance feedback banners and friendly study reminders.
+              Used in friendly study reminders and peer collaboration.
             </small>
           </label>
 
@@ -329,7 +329,7 @@ export default function AcademicOnboardingModal({
               Skip for now
             </button>
             <button type="submit" className="button primary" disabled={saving}>
-              {saving ? 'Saving Profile…' : 'Complete Setup & Connect Schedule'}
+              {saving ? 'Saving Profile…' : 'Complete Academic Profile Setup'}
             </button>
           </div>
         </form>
