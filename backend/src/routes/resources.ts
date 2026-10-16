@@ -3,6 +3,7 @@ import multer from 'multer';
 import type { NextFunction, Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
+import { sensitiveLimiter } from '../middleware/rate-limit';
 import { Prisma, prisma } from '../lib/prisma';
 import { InvalidResourceFileError, uploadResourceFile } from '../lib/storage';
 import { deleteFromCloudinary, buildAttachmentUrl, buildCleanPreviewUrl } from '../lib/cloudinary';
@@ -496,7 +497,7 @@ router.post('/:id/report', requireAuth, async (req: AuthenticatedRequest, res) =
   }
 });
 
-router.post('/', requireAuth, handleResourceUpload, async (req: AuthenticatedRequest, res) => {
+router.post('/', sensitiveLimiter, requireAuth, handleResourceUpload, async (req: AuthenticatedRequest, res) => {
   let uploadedObjectPath: string | null = null;
   let resourceCreated = false;
 
@@ -645,7 +646,7 @@ router.put('/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
   }
 });
 
-router.put('/:id/files/:fileId', requireAuth, handleResourceUpload, async (req: AuthenticatedRequest, res) => {
+router.put('/:id/files/:fileId', sensitiveLimiter, requireAuth, handleResourceUpload, async (req: AuthenticatedRequest, res) => {
   let uploadedPath: string | null = null;
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;

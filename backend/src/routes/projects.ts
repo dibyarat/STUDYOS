@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
+import { sensitiveLimiter } from '../middleware/rate-limit';
 import multer from 'multer';
 import { uploadResourceFile, InvalidResourceFileError } from '../lib/storage';
 import { deleteFromCloudinary, buildAttachmentUrl, buildCleanPreviewUrl } from '../lib/cloudinary';
@@ -100,7 +101,7 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
 });
 
 // POST / - Create project
-router.post('/', requireAuth, upload.single('file'), async (req: AuthenticatedRequest, res) => {
+router.post('/', sensitiveLimiter, requireAuth, upload.single('file'), async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });

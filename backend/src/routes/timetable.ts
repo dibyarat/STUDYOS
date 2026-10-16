@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../lib/prisma';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
+import { sensitiveLimiter } from '../middleware/rate-limit';
 
 const router = Router();
 
@@ -114,7 +115,7 @@ router.get('/sections', requireAuth, async (_req, res) => {
 });
 
 // POST /api/v1/studyos/timetable/import
-router.post('/import', requireAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/import', sensitiveLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user!.id;
     const { role, isDeveloper, isCR, section: userSection } = await getUserRoles(userId);

@@ -3407,7 +3407,7 @@ function LabCard({ lab, currentUserId, isExpanded, onToggle, onEdit, onDelete, o
 }
 
 function AccountSettings() {
-  const { user, profile: globalProfile, session, reloadProfile } = useAuth();
+  const { user, profile: globalProfile, session, reloadProfile, signOut } = useAuth();
   const identity = globalProfile?.academicIdentity || {};
   const campusProfile = globalProfile?.profile || {};
   const institution = globalProfile?.Institution || {};
@@ -3415,6 +3415,10 @@ function AccountSettings() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [profile, setProfile] = useState({
     name: campusProfile?.fullName || globalProfile?.name || user?.user_metadata?.name || '',
     avatarUrl: campusProfile?.avatarUrl || globalProfile?.avatarUrl || '',
@@ -3507,6 +3511,46 @@ function AccountSettings() {
       setError(saveError.message || 'Unable to save your profile. Please try again.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmInput !== 'DELETE_MY_ACCOUNT') {
+      setDeleteError('Confirmation mismatch. Please type DELETE_MY_ACCOUNT exactly as shown.');
+      return;
+    }
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      const res = await apiRequest('/account', {
+        method: 'DELETE',
+        body: { confirmation: 'DELETE_MY_ACCOUNT' },
+        token: session?.access_token,
+      });
+
+      if (res?.errors && res.errors.length > 0) {
+        setDeleteError(`Account deletion completed with warnings: ${res.errors.join('; ')}`);
+        setDeleting(false);
+        return;
+      }
+
+      if (!res?.success) {
+        setDeleteError('Failed to delete account. Please try again or contact support.');
+        setDeleting(false);
+        return;
+      }
+
+      if (signOut) {
+        await signOut();
+      }
+      window.location.href = '/';
+    } catch (err) {
+      if (err?.status === 401 || err?.message?.toLowerCase().includes('expired') || err?.message?.toLowerCase().includes('authentication')) {
+        setDeleteError('Your session has expired. Please log in again to delete your account.');
+      } else {
+        setDeleteError(err?.message || 'Failed to delete account.');
+      }
+      setDeleting(false);
     }
   };
 
@@ -3764,7 +3808,117 @@ function AccountSettings() {
             </button>
           </div>
         </form>
+
+        <div className="account-panel danger-panel" style={{ border: '1px solid #fed7aa', background: '#fffbeb', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', height: 'fit-content' }}>
+          <div className="panel-heading" style={{ borderBottomColor: '#fde68a' }}>
+            <div style={{ display: 'grid', placeItems: 'center', width: 42, height: 42, borderRadius: 13, color: '#dc2626', background: '#fee2e2' }}>
+              <Trash2 size={20} />
+            </div>
+            <div>
+              <h2 style={{ color: '#991b1b', margin: 0, fontSize: '15px' }}>Danger Zone</h2>
+              <p style={{ color: '#b45309', margin: '4px 0 0', fontSize: '10px' }}>Permanent account and data removal</p>
+            </div>
+          </div>
+          <div style={{ fontSize: '12px', color: '#4b5563', lineHeight: 1.6 }}>
+            <p style={{ margin: 0, fontWeight: 700, color: '#1f2937' }}>Delete StudyOS Account</p>
+            <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#6b7280' }}>
+              Permanently delete your profile, academic identity, uploaded study resources, lab projects, and authentication credentials. This action cannot be undone.
+            </p>
+          </div>
+          <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #fde68a' }}>
+            <button
+              type="button"
+              className="button"
+              style={{ background: '#dc2626', color: '#fff', border: '1px solid #b91c1c', width: '100%', cursor: 'pointer' }}
+              onClick={() => {
+                setShowDeleteModal(true);
+                setDeleteConfirmInput('');
+                setDeleteError('');
+              }}
+            >
+              <Trash2 size={14} /> Delete My Account
+            </button>
+          </div>
+        </div>
       </div>
+
+      {showDeleteModal && (
+        <Modal title="Delete StudyOS Account" onClose={() => !deleting && setShowDeleteModal(false)}>
+          <div style={{ display: 'grid', gap: '16px' }}>
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '14px', color: '#991b1b', fontSize: '12px', lineHeight: 1.5 }}>
+              <strong style={{ display: 'block', marginBottom: '6px', fontSize: '13px' }}>
+                Warning: This action is permanent and cannot be undone.
+              </strong>
+              <p style={{ margin: '0 0 8px' }}>
+                Deleting your account will immediately and permanently erase:
+              </p>
+              <ul style={{ margin: 0, paddingLeft: '18px', display: 'grid', gap: '4px' }}>
+                <li>Your personal profile, academic identity, and onboarding data</li>
+                <li>All uploaded study resources and associated file attachments</li>
+                <li>All lab projects, code submissions, and deliverables</li>
+                <li>Your Firebase Authentication credentials and active sessions</li>
+              </ul>
+            </div>
+
+            <div style={{ display: 'grid', gap: '6px' }}>
+              <label htmlFor="delete-confirm-input" style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>
+                To confirm deletion, please type <code style={{ background: '#f3f4f6', padding: '2px 6px', borderRadius: '4px', color: '#dc2626' }}>DELETE_MY_ACCOUNT</code> below:
+              </label>
+              <input
+                id="delete-confirm-input"
+                type="text"
+                value={deleteConfirmInput}
+                onChange={(e) => {
+                  setDeleteConfirmInput(e.target.value);
+                  if (deleteError) setDeleteError('');
+                }}
+                placeholder="DELETE_MY_ACCOUNT"
+                disabled={deleting}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  outline: 'none',
+                  fontFamily: 'monospace',
+                }}
+              />
+            </div>
+
+            {deleteError && (
+              <div style={{ background: '#fee2e2', border: '1px solid #f87171', borderRadius: '8px', padding: '10px 12px', color: '#b91c1c', fontSize: '12px' }} role="alert">
+                {deleteError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }}>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="button"
+                style={{
+                  background: deleteConfirmInput === 'DELETE_MY_ACCOUNT' && !deleting ? '#dc2626' : '#fca5a5',
+                  color: '#fff',
+                  border: 'none',
+                  cursor: deleteConfirmInput === 'DELETE_MY_ACCOUNT' && !deleting ? 'pointer' : 'not-allowed',
+                }}
+                disabled={deleting || deleteConfirmInput !== 'DELETE_MY_ACCOUNT'}
+                onClick={handleDeleteAccount}
+              >
+                {deleting ? 'Deleting account...' : 'Permanently Delete Account'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </section>
   );
 }

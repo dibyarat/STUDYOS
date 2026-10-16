@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { Filter, FieldPath } from 'firebase-admin/firestore';
 import { getFirebaseDb } from './firebase';
 
 export namespace Prisma {
@@ -22,9 +23,13 @@ export namespace Prisma {
   export type ResourceCreateInput = Record<string, any>;
 }
 
-// In-memory cache synced with Firestore for blazing-fast relational resolution
+// In-memory cache for fast document retrieval and relation resolution
 const cache = new Map<string, Map<string, Record<string, any>>>();
-const initializedCollections = new Set<string>();
+const docCacheTimestamps = new Map<string, Map<string, number>>();
+const collectionCache = new Map<string, { docs: Record<string, any>[]; cachedAt: number }>();
+
+const DOC_CACHE_TTL_MS = 60_000; // 60s TTL for individual doc lookups
+const COLLECTION_CACHE_TTL_MS = 30_000; // 30s TTL for full-collection lookups (e.g. institutions)
 
 function getCollectionMap(name: string): Map<string, Record<string, any>> {
   let map = cache.get(name);
@@ -35,27 +40,47 @@ function getCollectionMap(name: string): Map<string, Record<string, any>> {
   return map;
 }
 
-async function syncCollection(name: string): Promise<Map<string, Record<string, any>>> {
-  const map = getCollectionMap(name);
-  if (initializedCollections.has(name)) return map;
+function getCachedDoc(collectionName: string, id: string): Record<string, any> | null {
+  const map = cache.get(collectionName);
+  if (!map) return null;
+  const doc = map.get(id);
+  if (!doc) return null;
 
-  try {
-    const db = getFirebaseDb();
-    const snapshot = await db.collection(name).get();
-    for (const doc of snapshot.docs) {
-      map.set(doc.id, { id: doc.id, ...doc.data() });
-    }
-    initializedCollections.add(name);
-  } catch (error) {
-    console.error(`[CRITICAL FIRESTORE WARNING] Collection sync failed for ${name}:`, (error as Error).message);
-    initializedCollections.add(name);
+  const timestamps = docCacheTimestamps.get(collectionName);
+  const cachedAt = timestamps?.get(id) || 0;
+  if (Date.now() - cachedAt > DOC_CACHE_TTL_MS) {
+    return null;
   }
-  return map;
+  return doc;
+}
+
+function setCachedDoc(collectionName: string, id: string, data: Record<string, any>): void {
+  const map = getCollectionMap(collectionName);
+  map.set(id, { id, ...data });
+
+  let timestamps = docCacheTimestamps.get(collectionName);
+  if (!timestamps) {
+    timestamps = new Map();
+    docCacheTimestamps.set(collectionName, timestamps);
+  }
+  timestamps.set(id, Date.now());
+}
+
+function invalidateDoc(collectionName: string, id: string): void {
+  const map = cache.get(collectionName);
+  if (map) map.delete(id);
+  const timestamps = docCacheTimestamps.get(collectionName);
+  if (timestamps) timestamps.delete(id);
+  collectionCache.delete(collectionName);
+}
+
+function invalidateCollection(collectionName: string): void {
+  collectionCache.delete(collectionName);
 }
 
 async function persistDoc(name: string, id: string, data: Record<string, any>): Promise<void> {
-  const map = getCollectionMap(name);
-  map.set(id, { id, ...data });
+  setCachedDoc(name, id, data);
+  invalidateCollection(name);
 
   try {
     const db = getFirebaseDb();
@@ -71,8 +96,7 @@ async function persistDoc(name: string, id: string, data: Record<string, any>): 
 }
 
 async function deleteDoc(name: string, id: string): Promise<void> {
-  const map = getCollectionMap(name);
-  map.delete(id);
+  invalidateDoc(name, id);
 
   try {
     const db = getFirebaseDb();
@@ -210,9 +234,169 @@ function applySelect(item: Record<string, any>, select: Record<string, any> | un
 export class FirestoreCollection<T extends Record<string, any> = Record<string, any>> {
   constructor(public readonly collectionName: string) {}
 
-  private async getItems(): Promise<T[]> {
-    const map = await syncCollection(this.collectionName);
-    return Array.from(map.values()) as T[];
+  private buildFirestoreQuery(
+    db: any,
+    where?: any,
+    take?: number,
+    skip?: number,
+    orderBy?: any,
+  ): { query: any; canLimitAtDb: boolean; canCountAtDb: boolean } {
+    let query: any = db.collection(this.collectionName);
+    if (!where || typeof where !== 'object' || Object.keys(where).length === 0) {
+      const canLimitAtDb = typeof take === 'number' && take > 0;
+      if (orderBy) {
+        const order = Array.isArray(orderBy) ? orderBy[0] : orderBy;
+        if (order && typeof order === 'object') {
+          const [field, direction] = Object.entries(order)[0] || [];
+          if (field && typeof field === 'string') {
+            const dir = String(direction).toLowerCase() === 'desc' ? 'desc' : 'asc';
+            query = query.orderBy(field, dir);
+          }
+        }
+      }
+      if (canLimitAtDb) {
+        query = query.limit(take + (skip || 0));
+      }
+      return { query, canLimitAtDb, canCountAtDb: true };
+    }
+
+    let hasInMemoryOnly = false;
+    let appliedCount = 0;
+
+    for (const [key, condition] of Object.entries(where)) {
+      if (key === 'OR') {
+        if (Array.isArray(condition) && condition.length > 0 && condition.length <= 10) {
+          const orFilters: any[] = [];
+          let canConvertOr = true;
+
+          for (const branch of condition) {
+            if (!branch || typeof branch !== 'object') {
+              canConvertOr = false;
+              break;
+            }
+            const entries = Object.entries(branch);
+            if (entries.length === 1) {
+              const [bKey, bVal] = entries[0];
+              if (typeof bVal === 'string' || typeof bVal === 'number' || typeof bVal === 'boolean') {
+                orFilters.push(Filter.where(bKey, '==', bVal));
+              } else {
+                canConvertOr = false;
+                break;
+              }
+            } else {
+              canConvertOr = false;
+              break;
+            }
+          }
+
+          if (canConvertOr && orFilters.length > 0) {
+            query = query.where(Filter.or(...orFilters));
+            appliedCount++;
+          } else {
+            hasInMemoryOnly = true;
+          }
+        } else {
+          hasInMemoryOnly = true;
+        }
+        continue;
+      }
+
+      if (key === 'AND') {
+        if (Array.isArray(condition)) {
+          for (const sub of condition) {
+            if (sub && typeof sub === 'object') {
+              for (const [subKey, subVal] of Object.entries(sub)) {
+                if (typeof subVal === 'string' || typeof subVal === 'number' || typeof subVal === 'boolean') {
+                  query = query.where(subKey, '==', subVal);
+                  appliedCount++;
+                } else {
+                  hasInMemoryOnly = true;
+                }
+              }
+            }
+          }
+        }
+        continue;
+      }
+
+      if (key === 'NOT') {
+        hasInMemoryOnly = true;
+        continue;
+      }
+
+      // Handle composite unique keys like userId_resourceId
+      if (
+        key.includes('_') &&
+        condition &&
+        typeof condition === 'object' &&
+        !Array.isArray(condition) &&
+        !(condition instanceof Date) &&
+        !('equals' in condition || 'in' in condition || 'not' in condition || 'contains' in condition || 'gt' in condition || 'gte' in condition || 'lt' in condition || 'lte' in condition || 'some' in condition || 'is' in condition || 'isNot' in condition)
+      ) {
+        for (const [subKey, subVal] of Object.entries(condition)) {
+          if (typeof subVal === 'string' || typeof subVal === 'number' || typeof subVal === 'boolean') {
+            query = query.where(subKey, '==', subVal);
+            appliedCount++;
+          } else {
+            hasInMemoryOnly = true;
+          }
+        }
+        continue;
+      }
+
+      // Handle direct primitive equality
+      if (typeof condition === 'string' || typeof condition === 'number' || typeof condition === 'boolean') {
+        if (key === 'teamId' || key === 'teamPostId') {
+          query = query.where(Filter.or(Filter.where('teamId', '==', condition), Filter.where('teamPostId', '==', condition)));
+        } else {
+          query = query.where(key, '==', condition);
+        }
+        appliedCount++;
+        continue;
+      }
+
+      if (condition === null) {
+        query = query.where(key, '==', null);
+        appliedCount++;
+        continue;
+      }
+
+      // Handle operator objects
+      if (condition && typeof condition === 'object' && !Array.isArray(condition) && !(condition instanceof Date)) {
+        const cond = condition as Record<string, any>;
+        if ('equals' in cond && (typeof cond.equals === 'string' || typeof cond.equals === 'number' || typeof cond.equals === 'boolean' || cond.equals === null)) {
+          query = query.where(key, '==', cond.equals);
+          appliedCount++;
+        } else if ('in' in cond && Array.isArray(cond.in)) {
+          if (cond.in.length > 0 && cond.in.length <= 30 && cond.in.every((x: any) => typeof x === 'string' || typeof x === 'number' || typeof x === 'boolean')) {
+            query = query.where(key, 'in', cond.in);
+            appliedCount++;
+          } else {
+            hasInMemoryOnly = true;
+          }
+        } else {
+          hasInMemoryOnly = true;
+        }
+        continue;
+      }
+
+      hasInMemoryOnly = true;
+    }
+
+    const hasFilters = appliedCount > 0;
+    const hasOrderBy = !!orderBy;
+
+    // We can only push .limit() to Firestore if there are no in-memory-only filters,
+    // AND if there is no orderBy (or if there are no filters so Firestore single-field index orders it).
+    // If there ARE filters AND orderBy, pushing .limit() to Firestore without ordering causes Firestore
+    // to discard matching records before sorting in memory.
+    const canLimitAtDb = !hasInMemoryOnly && (!hasOrderBy || !hasFilters) && typeof take === 'number' && take > 0;
+    if (canLimitAtDb) {
+      query = query.limit(take + (skip || 0));
+    }
+
+    const canCountAtDb = !hasInMemoryOnly;
+    return { query, canLimitAtDb, canCountAtDb };
   }
 
   async findMany(args?: {
@@ -223,36 +407,142 @@ export class FirestoreCollection<T extends Record<string, any> = Record<string, 
     skip?: number;
     take?: number;
   }): Promise<any[]> {
-    let items = await this.getItems();
+    const db = getFirebaseDb();
 
+    // Fast path: direct document lookup if where contains a single string id
+    if (typeof args?.where?.id === 'string' && Object.keys(args.where).length === 1) {
+      const id = args.where.id;
+      let item: Record<string, any> | null = getCachedDoc(this.collectionName, id);
+      if (!item) {
+        try {
+          const docSnap = await db.collection(this.collectionName).doc(id).get();
+          if (docSnap.exists) {
+            item = { id: docSnap.id, ...docSnap.data() };
+            setCachedDoc(this.collectionName, id, item);
+          }
+        } catch (err: any) {
+          console.warn(`[prisma] findMany direct doc lookup failed for ${this.collectionName}/${id}:`, err?.message);
+        }
+      }
+
+      if (!item) return [];
+
+      const resolved = await Promise.all([this.resolveRelations(item, args?.include)]);
+      return args?.select ? resolved.map((x) => applySelect(x, args.select)) : resolved;
+    }
+
+    let items: Record<string, any>[] = [];
+
+    // Collection cache check for unfiltered queries without take
+    const isUnfiltered = !args?.where || Object.keys(args.where).length === 0;
+    if (isUnfiltered && !args?.take) {
+      const cached = collectionCache.get(this.collectionName);
+      if (cached && Date.now() - cached.cachedAt < COLLECTION_CACHE_TTL_MS) {
+        items = [...cached.docs];
+      }
+    }
+
+    if (items.length === 0) {
+      const { query } = this.buildFirestoreQuery(db, args?.where, args?.take, args?.skip, args?.orderBy);
+      let snapshot: any;
+
+      try {
+        snapshot = await query.get();
+      } catch (err: any) {
+        const isIndexError =
+          (err as any)?.code === 9 ||
+          String(err?.message || '').includes('FAILED_PRECONDITION') ||
+          String(err?.message || '').includes('requires an index');
+
+        if (isUnfiltered && !args?.orderBy) {
+          // Safe fallback: when no specific ordering is requested, taking a slice from base collection is semantically valid.
+          console.warn(`[prisma] Unfiltered query without orderBy failed for ${this.collectionName} (${err?.message}). Retrying base collection.`);
+          try {
+            let fallbackQuery: any = db.collection(this.collectionName);
+            if (typeof args?.take === 'number' && args.take > 0) {
+              fallbackQuery = fallbackQuery.limit(args.take + (args.skip || 0));
+            }
+            snapshot = await fallbackQuery.get();
+          } catch (fallbackErr: any) {
+            console.error(`[prisma] Fallback query failed for ${this.collectionName}:`, fallbackErr?.message);
+            throw new Prisma.PrismaClientKnownRequestError(
+              `Query failed for ${this.collectionName}: ${fallbackErr?.message}`,
+              { code: 'P2010' }
+            );
+          }
+        } else {
+          // When filters or orderBy are specified, falling back to an unordered or arbitrary slice would silently return incomplete or incorrectly ordered results.
+          // Furthermore, scanning the entire collection would recreate unbounded reads.
+          // Safely propagate a Prisma-compatible error so missing indexes can be added.
+          console.error(`[prisma] Query failed for ${this.collectionName}:`, (err as Error).message);
+          throw new Prisma.PrismaClientKnownRequestError(
+            `Query failed for ${this.collectionName}: ${(err as Error).message}`,
+            { code: isIndexError ? 'P2021' : 'P2010' }
+          );
+        }
+      }
+
+      items = snapshot.docs.map((doc: any) => {
+        const data = { id: doc.id, ...doc.data() };
+        setCachedDoc(this.collectionName, doc.id, data);
+        return data;
+      });
+
+      if (isUnfiltered && !args?.take) {
+        collectionCache.set(this.collectionName, { docs: items, cachedAt: Date.now() });
+      }
+    }
+
+    // Filter with matchesWhere
     if (args?.where) {
       items = items.filter((item) => matchesWhere(item, args.where));
     }
 
+    // In-memory sorting (preserves exact Prisma sorting behavior, supports multi-key sorting and stable ID tie-breaker)
     if (args?.orderBy) {
-      const order = Array.isArray(args.orderBy) ? args.orderBy[0] : args.orderBy;
-      if (order && typeof order === 'object') {
-        const [field, direction] = Object.entries(order)[0] || [];
-        if (field) {
-          const isAsc = String(direction).toLowerCase() === 'asc';
-          items = [...items].sort((a, b) => {
+      const orderList: Array<{ field: string; isAsc: boolean }> = [];
+      const orders = Array.isArray(args.orderBy) ? args.orderBy : [args.orderBy];
+      for (const order of orders) {
+        if (order && typeof order === 'object') {
+          for (const [field, direction] of Object.entries(order)) {
+            if (field && typeof field === 'string') {
+              orderList.push({
+                field,
+                isAsc: String(direction).toLowerCase() === 'asc',
+              });
+            }
+          }
+        }
+      }
+
+      if (orderList.length > 0) {
+        items = [...items].sort((a, b) => {
+          for (const { field, isAsc } of orderList) {
             const va = a[field];
             const vb = b[field];
-            if (va === vb) return 0;
+            if (va === vb) continue;
             if (va == null) return isAsc ? -1 : 1;
             if (vb == null) return isAsc ? 1 : -1;
-            return isAsc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
-          });
-        }
+            if (va > vb) return isAsc ? 1 : -1;
+            if (va < vb) return isAsc ? -1 : 1;
+          }
+          // Stable tie-breaker by id if present
+          if (a.id && b.id && a.id !== b.id) {
+            return a.id > b.id ? 1 : -1;
+          }
+          return 0;
+        });
       }
     }
 
+    // In-memory pagination
     if (args?.skip || args?.take) {
       const start = args.skip || 0;
       const end = args.take ? start + args.take : undefined;
       items = items.slice(start, end);
     }
 
+    // Relational resolution only on final sliced items
     const resolved = await Promise.all(items.map((item) => this.resolveRelations(item, args?.include)));
 
     if (args?.select) {
@@ -262,10 +552,44 @@ export class FirestoreCollection<T extends Record<string, any> = Record<string, 
   }
 
   async findUnique(args: { where: any; select?: any; include?: any }): Promise<any | null> {
+    if (!args?.where) return null;
+
+    // Fast path: direct document lookup by id
+    if (typeof args.where.id === 'string') {
+      const id = args.where.id;
+      let item: Record<string, any> | null = getCachedDoc(this.collectionName, id);
+
+      if (!item) {
+        try {
+          const db = getFirebaseDb();
+          const docSnap = await db.collection(this.collectionName).doc(id).get();
+          if (!docSnap.exists) {
+            return null;
+          }
+          item = { id: docSnap.id, ...docSnap.data() };
+          setCachedDoc(this.collectionName, id, item);
+        } catch (err: any) {
+          console.error(`[prisma] findUnique doc fetch failed for ${this.collectionName}/${id}:`, err?.message);
+          return null;
+        }
+      }
+
+      if (!matchesWhere(item, args.where)) {
+        return null;
+      }
+
+      const resolved = await this.resolveRelations(item, args.include);
+      return args.select ? applySelect(resolved, args.select) : resolved;
+    }
+
     return this.findFirst(args);
   }
 
   async findFirst(args?: { where?: any; select?: any; include?: any; orderBy?: any }): Promise<any | null> {
+    if (typeof args?.where?.id === 'string' && !args?.orderBy && !args?.where?.OR && !args?.where?.AND) {
+      return this.findUnique(args as any);
+    }
+
     const results = await this.findMany({ ...args, take: 1 });
     return results[0] || null;
   }
@@ -397,6 +721,24 @@ export class FirestoreCollection<T extends Record<string, any> = Record<string, 
   }
 
   async count(args?: { where?: any }): Promise<number> {
+    const isUnfiltered = !args?.where || Object.keys(args.where).length === 0;
+
+    try {
+      const db = getFirebaseDb();
+      if (isUnfiltered) {
+        const countSnap = await db.collection(this.collectionName).count().get();
+        return countSnap.data().count;
+      }
+
+      const { query, canCountAtDb } = this.buildFirestoreQuery(db, args?.where);
+      if (canCountAtDb) {
+        const countSnap = await query.count().get();
+        return countSnap.data().count;
+      }
+    } catch (err: any) {
+      // Fallback on count error
+    }
+
     const items = await this.findMany({ where: args?.where });
     return items.length;
   }

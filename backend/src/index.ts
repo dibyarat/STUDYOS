@@ -25,8 +25,13 @@ import projectsRouter from './routes/projects';
 import timetableRouter from './routes/timetable';
 import attendanceRouter from './routes/attendance';
 import { requireAuth } from './middleware/auth';
+import { generalLimiter, sensitiveLimiter } from './middleware/rate-limit';
+import { getFirebaseAuth } from './lib/firebase';
+import { deleteFromCloudinary } from './lib/cloudinary';
 
 const app = express();
+// Trust single upstream proxy hop (Render reverse proxy load balancer)
+app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT || 3001);
 
 const allowedOrigins = [
@@ -72,24 +77,14 @@ app.use((_req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: '10mb' }));
-
-if (process.env.NODE_ENV !== 'production') {
-  app.use((req, res, next) => {
-    if (!req.path.startsWith('/api/') && req.path !== '/health') return next();
-    const startedAt = process.hrtime.bigint();
-    const requestPath = req.path;
-    res.on('finish', () => {
-      const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
-      console.info(`[api] ${req.method} ${requestPath} ${res.statusCode} ${durationMs.toFixed(1)}ms`);
-    });
-    next();
-  });
-}
-
-app.get('/health', (_req, res) => {
+// Health check endpoints mounted early to ensure uptime checks bypass rate limiting and body parsing
+app.get(['/health', '/api/health'], (_req, res) => {
   res.json({ success: true, status: 'ok' });
 });
+
+// General rate limiter executes before expensive body parsing to drop flooders without RAM allocation
+app.use(generalLimiter);
+app.use(express.json({ limit: '10mb' }));
 
 app.use('/api/v1/studyos/resources', resourcesRouter);
 app.use('/api/v1/studyos/classes', classesRouter);
@@ -102,7 +97,7 @@ app.use('/api/v1/studyos/projects', projectsRouter);
 app.use('/api/v1/studyos/timetable', timetableRouter);
 app.use('/api/v1/studyos/attendance', attendanceRouter);
 
-app.get(['/api/v1/studyos/institutions', '/institutions'], async (_req, res) => {
+app.get(['/api/v1/studyos/institutions', '/institutions'], sensitiveLimiter, async (_req, res) => {
   try {
     const institutions = await prisma.institution.findMany({});
     res.json(institutions);
@@ -125,7 +120,7 @@ app.get('/api/v1/studyos/dashboard/summary', requireAuth, async (_req, res) => {
   }
 });
 
-app.get('/api/v1/studyos/search', requireAuth, async (req, res) => {
+app.get('/api/v1/studyos/search', sensitiveLimiter, requireAuth, async (req, res) => {
   try {
     const query = String(req.query.q || '').trim();
     if (query.length > 100) return res.status(400).json({ error: 'Search query must be 100 characters or fewer' });
@@ -258,7 +253,7 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.post('/api/v1/studyos/sync-user', requireAuth, async (req, res) => {
+app.post('/api/v1/studyos/sync-user', sensitiveLimiter, requireAuth, async (req, res) => {
   try {
     const authUser = req.user;
     if (!authUser) {
@@ -363,7 +358,7 @@ app.get('/api/v1/studyos/public-profile/:userId', requireAuth, async (req, res) 
   }
 });
 
-app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
+app.put('/api/v1/studyos/profile/:userId', sensitiveLimiter, requireAuth, async (req, res) => {
   try {
     const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
     if (!userId) {
@@ -579,6 +574,123 @@ app.put('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
   }
 });
 
+// DELETE /api/v1/studyos/account - Self-service account deletion
+app.delete('/api/v1/studyos/account', sensitiveLimiter, requireAuth, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const { confirmation } = req.body || {};
+  if (confirmation !== 'DELETE_MY_ACCOUNT') {
+    return res.status(400).json({ error: 'Confirmation required: body must contain confirmation="DELETE_MY_ACCOUNT"' });
+  }
+
+  const result: {
+    success: boolean;
+    userId: string;
+    steps: {
+      resources: { deletedCount: number; errors: string[] };
+      projects: { deletedCount: number; errors: string[] };
+      firestoreUser: 'deleted' | 'failed';
+      firebaseAuth: 'deleted' | 'failed' | 'not_found';
+    };
+    errors: string[];
+  } = {
+    success: false,
+    userId,
+    steps: {
+      resources: { deletedCount: 0, errors: [] },
+      projects: { deletedCount: 0, errors: [] },
+      firestoreUser: 'failed',
+      firebaseAuth: 'not_found',
+    },
+    errors: [],
+  };
+
+  try {
+    // 1. Delete user resources & associated Cloudinary files
+    try {
+      const userResources = await prisma.resource.findMany({
+        where: { creatorId: userId },
+        include: { files: true },
+      });
+      for (const resource of userResources) {
+        if (resource.files && resource.files.length > 0) {
+          const fileUrls = resource.files.map((f: any) => f.fileUrl).filter(Boolean);
+          for (const url of fileUrls) {
+            try {
+              await deleteFromCloudinary(url);
+            } catch (e: any) {
+              result.steps.resources.errors.push(`Cloudinary delete error: ${e?.message}`);
+            }
+          }
+        }
+        await prisma.resource.delete({ where: { id: resource.id } });
+        result.steps.resources.deletedCount++;
+      }
+    } catch (e: any) {
+      result.steps.resources.errors.push(`Resources cleanup failed: ${e?.message}`);
+      result.errors.push(`Resources: ${e?.message}`);
+    }
+
+    // 2. Delete user projects & associated Cloudinary files
+    try {
+      const userProjects = await prisma.project.findMany({
+        where: { creatorId: userId },
+        include: { files: true },
+      });
+      for (const project of userProjects) {
+        if (project.files && project.files.length > 0) {
+          const fileUrls = project.files.map((f: any) => f.fileUrl).filter(Boolean);
+          for (const url of fileUrls) {
+            try {
+              await deleteFromCloudinary(url);
+            } catch (e: any) {
+              result.steps.projects.errors.push(`Cloudinary delete error: ${e?.message}`);
+            }
+          }
+        }
+        await prisma.project.delete({ where: { id: project.id } });
+        result.steps.projects.deletedCount++;
+      }
+    } catch (e: any) {
+      result.steps.projects.errors.push(`Projects cleanup failed: ${e?.message}`);
+      result.errors.push(`Projects: ${e?.message}`);
+    }
+
+    // 3. Delete user document, profile, and academic identity from Firestore
+    try {
+      await prisma.user.delete({ where: { id: userId } });
+      await prisma.profile.deleteMany({ where: { userId } }).catch(() => {});
+      await prisma.academicIdentity.deleteMany({ where: { userId } }).catch(() => {});
+      result.steps.firestoreUser = 'deleted';
+    } catch (e: any) {
+      result.steps.firestoreUser = 'failed';
+      result.errors.push(`Firestore user deletion failed: ${e?.message}`);
+    }
+
+    // 4. Delete Firebase Auth account
+    try {
+      await getFirebaseAuth().deleteUser(userId);
+      result.steps.firebaseAuth = 'deleted';
+    } catch (e: any) {
+      if ((e as any)?.code === 'auth/user-not-found') {
+        result.steps.firebaseAuth = 'not_found';
+      } else {
+        result.steps.firebaseAuth = 'failed';
+        result.errors.push(`Firebase Auth deletion failed: ${e?.message}`);
+      }
+    }
+
+    result.success = result.steps.firestoreUser === 'deleted' || result.steps.firebaseAuth === 'deleted';
+    return res.status(result.success ? 200 : 500).json(result);
+  } catch (err: any) {
+    result.errors.push(err?.message || 'Unknown account deletion error');
+    return res.status(500).json(result);
+  }
+});
+
 // POST /api/v1/studyos/roles/set-cr
 app.post('/api/v1/studyos/roles/set-cr', requireAuth, async (req, res) => {
   try {
@@ -586,9 +698,11 @@ app.post('/api/v1/studyos/roles/set-cr', requireAuth, async (req, res) => {
     const targetUserId = String(req.body.userId || callerId).trim();
     const sectionName = String(req.body.section || 'A').trim();
 
-    // Check caller role or allow self-assignment
+    // Verify caller has DEVELOPER role to prevent unauthorized role escalation
     const caller = await prisma.user.findUnique({ where: { id: callerId } });
-    const isDev = caller?.role === 'DEVELOPER';
+    if (caller?.role !== 'DEVELOPER') {
+      return res.status(403).json({ error: 'Forbidden: Only DEVELOPER role can assign CR roles' });
+    }
 
     const updated = await prisma.user.update({
       where: { id: targetUserId },

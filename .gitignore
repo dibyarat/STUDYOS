@@ -38,3 +38,7 @@ Thumbs.db
 
 # Local merge scripts
 merge.py
+
+# Temporary backups
+*.bak
+**/*.bak
