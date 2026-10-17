@@ -33,6 +33,8 @@ import {
   ExternalLink,
   Code2,
   LogOut,
+  LockKeyhole,
+  Mail,
 } from 'lucide-react'
 import './StudyOS.css'
 import './StudyOS-layout.css'
@@ -3407,7 +3409,7 @@ function LabCard({ lab, currentUserId, isExpanded, onToggle, onEdit, onDelete, o
 }
 
 function AccountSettings() {
-  const { user, profile: globalProfile, session, reloadProfile, signOut } = useAuth();
+  const { user, profile: globalProfile, session, reloadProfile, signOut, resetPassword } = useAuth();
   const identity = globalProfile?.academicIdentity || {};
   const campusProfile = globalProfile?.profile || {};
   const institution = globalProfile?.Institution || {};
@@ -3415,10 +3417,35 @@ function AccountSettings() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
+  const [resetStatus, setResetStatus] = useState('');
+  const [resetError, setResetError] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+
+  const handleSendPasswordReset = async () => {
+    if (!user?.email) {
+      setResetError('No email associated with this account.');
+      return;
+    }
+    setSendingReset(true);
+    setResetStatus('');
+    setResetError('');
+    try {
+      const { error: sendErr } = await resetPassword(user.email);
+      if (sendErr) {
+        setResetError(sendErr.message || 'Failed to send password reset email.');
+      } else {
+        setResetStatus(`Password reset link sent to ${user.email}! Please check your inbox (and spam folder).`);
+      }
+    } catch (err) {
+      setResetError(err?.message || 'Unable to send password reset email.');
+    } finally {
+      setSendingReset(false);
+    }
+  };
   const [profile, setProfile] = useState({
     name: campusProfile?.fullName || globalProfile?.name || user?.user_metadata?.name || '',
     avatarUrl: campusProfile?.avatarUrl || globalProfile?.avatarUrl || '',
@@ -3809,35 +3836,76 @@ function AccountSettings() {
           </div>
         </form>
 
-        <div className="account-panel danger-panel" style={{ border: '1px solid #fed7aa', background: '#fffbeb', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', height: 'fit-content' }}>
-          <div className="panel-heading" style={{ borderBottomColor: '#fde68a' }}>
-            <div style={{ display: 'grid', placeItems: 'center', width: 42, height: 42, borderRadius: 13, color: '#dc2626', background: '#fee2e2' }}>
-              <Trash2 size={20} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="account-panel security-panel" style={{ border: '1px solid #e2e8f0', background: '#ffffff', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', height: 'fit-content' }}>
+            <div className="panel-heading" style={{ borderBottomColor: '#f1f5f9', display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <div style={{ display: 'grid', placeItems: 'center', width: 42, height: 42, borderRadius: 13, color: '#2563eb', background: '#eff6ff' }}>
+                <LockKeyhole size={20} />
+              </div>
+              <div>
+                <h2 style={{ color: '#0f172a', margin: 0, fontSize: '15px' }}>Security & Credentials</h2>
+                <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: '11px' }}>Password recovery and authentication</p>
+              </div>
             </div>
-            <div>
-              <h2 style={{ color: '#991b1b', margin: 0, fontSize: '15px' }}>Danger Zone</h2>
-              <p style={{ color: '#b45309', margin: '4px 0 0', fontSize: '10px' }}>Permanent account and data removal</p>
+            <div style={{ fontSize: '12px', color: '#4b5563', lineHeight: 1.6 }}>
+              <p style={{ margin: 0, fontWeight: 700, color: '#1f2937' }}>Reset Account Password</p>
+              <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#6b7280' }}>
+                Need to update your password? We will send an official Firebase password reset link to <strong>{user?.email}</strong>.
+              </p>
+              {resetStatus && (
+                <p style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '8px', background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', fontSize: '11px' }}>
+                  {resetStatus}
+                </p>
+              )}
+              {resetError && (
+                <p style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '8px', background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', fontSize: '11px' }}>
+                  {resetError}
+                </p>
+              )}
+            </div>
+            <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
+              <button
+                type="button"
+                className="button"
+                disabled={sendingReset}
+                style={{ background: '#f8fafc', color: '#0f172a', border: '1px solid #cbd5e1', width: '100%', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                onClick={handleSendPasswordReset}
+              >
+                <Mail size={14} /> {sendingReset ? 'Sending link…' : 'Send Password Reset Email'}
+              </button>
             </div>
           </div>
-          <div style={{ fontSize: '12px', color: '#4b5563', lineHeight: 1.6 }}>
-            <p style={{ margin: 0, fontWeight: 700, color: '#1f2937' }}>Delete StudyOS Account</p>
-            <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#6b7280' }}>
-              Permanently delete your profile, academic identity, uploaded study resources, lab projects, and authentication credentials. This action cannot be undone.
-            </p>
-          </div>
-          <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #fde68a' }}>
-            <button
-              type="button"
-              className="button"
-              style={{ background: '#dc2626', color: '#fff', border: '1px solid #b91c1c', width: '100%', cursor: 'pointer' }}
-              onClick={() => {
-                setShowDeleteModal(true);
-                setDeleteConfirmInput('');
-                setDeleteError('');
-              }}
-            >
-              <Trash2 size={14} /> Delete My Account
-            </button>
+
+          <div className="account-panel danger-panel" style={{ border: '1px solid #fed7aa', background: '#fffbeb', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', height: 'fit-content' }}>
+            <div className="panel-heading" style={{ borderBottomColor: '#fde68a' }}>
+              <div style={{ display: 'grid', placeItems: 'center', width: 42, height: 42, borderRadius: 13, color: '#dc2626', background: '#fee2e2' }}>
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h2 style={{ color: '#991b1b', margin: 0, fontSize: '15px' }}>Danger Zone</h2>
+                <p style={{ color: '#b45309', margin: '4px 0 0', fontSize: '10px' }}>Permanent account and data removal</p>
+              </div>
+            </div>
+            <div style={{ fontSize: '12px', color: '#4b5563', lineHeight: 1.6 }}>
+              <p style={{ margin: 0, fontWeight: 700, color: '#1f2937' }}>Delete StudyOS Account</p>
+              <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#6b7280' }}>
+                Permanently delete your profile, academic identity, uploaded study resources, lab projects, and authentication credentials. This action cannot be undone.
+              </p>
+            </div>
+            <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #fde68a' }}>
+              <button
+                type="button"
+                className="button"
+                style={{ background: '#dc2626', color: '#fff', border: '1px solid #b91c1c', width: '100%', cursor: 'pointer' }}
+                onClick={() => {
+                  setShowDeleteModal(true);
+                  setDeleteConfirmInput('');
+                  setDeleteError('');
+                }}
+              >
+                <Trash2 size={14} /> Delete My Account
+              </button>
+            </div>
           </div>
         </div>
       </div>

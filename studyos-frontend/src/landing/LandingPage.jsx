@@ -41,8 +41,13 @@ export default function LandingPage({ initialShowLogin = false }) {
   const mapAuthError = (err) => {
     const code = err?.code || ''
     const message = err?.message || ''
-    if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+    if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
       return 'Incorrect email or password. Please verify your credentials or reset your password.'
+    }
+    if (code === 'auth/user-not-found') {
+      return authMode === 'forgot'
+        ? 'No account was found with this email address. Please verify your spelling or create an account.'
+        : 'Incorrect email or password. Please verify your credentials or reset your password.'
     }
     if (code === 'auth/email-already-in-use') {
       return 'An account already exists with this email address. Please sign in instead.'
