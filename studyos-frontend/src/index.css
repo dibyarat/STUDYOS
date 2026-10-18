@@ -9,7 +9,8 @@
   --color-accent: #D946A8;
   --color-blue: #19A3E9;
   --gradient-brand: linear-gradient(120deg, #087DB7, #7140D8 50%, #B92A88);
-  --glass-surface: color-mix(in srgb, #FFFFFF 82%, transparent);
+  --glass-surface: rgba(255, 255, 255, 0.68);
+  --glass-sub-surface: rgba(255, 255, 255, 0.45);
   --card-shadow: 0 30px 60px -30px rgb(113 64 216 / 20%);
   --glow-blue: rgba(25, 163, 233, 0.22);
   --glow-pink: rgba(217, 70, 168, 0.20);
@@ -32,12 +33,13 @@
     --color-text: #FFFFFF;
     --color-card: #1B1733;
     --color-muted: #A9A4C4;
-    --color-border: rgb(255 255 255 / 13%);
+    --color-border: rgba(255, 255, 255, 0.12);
     --color-primary: #8758F5;
     --color-accent: #D946A8;
     --color-blue: #19A3E9;
     --gradient-brand: linear-gradient(120deg, #19A3E9, #8758F5 50%, #D946A8);
-    --glass-surface: color-mix(in srgb, #FFFFFF 7%, transparent);
+    --glass-surface: rgba(255, 255, 255, 0.06);
+    --glass-sub-surface: rgba(255, 255, 255, 0.04);
     --card-shadow: 0 30px 60px -30px rgb(0 0 0 / 55%);
     --glow-blue: rgba(25, 163, 233, 0.28);
     --glow-pink: rgba(217, 70, 168, 0.25);

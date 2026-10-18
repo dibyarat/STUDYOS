@@ -1014,4 +1014,100 @@ select {
   font-family: inherit;
 }
 
+/* ==========================================================================
+   Global Translucent Glass Tiles & Component Elevation (HayonCampus)
+   ========================================================================== */
+
+.timetable-card,
+.attendance-hero-card,
+.attendance-subject-card,
+.file-viewer-fallback-card,
+.publish-mode-card,
+.publish-subitem,
+.messages-page,
+.conversation-list,
+.conversation-panel,
+.message-bubble,
+.notification-popover,
+.notification-item,
+.day-pill-btn,
+.section-pill-selector,
+.target-pill-btn,
+.discussion-comment,
+.vault-row,
+.dashboard-empty {
+  background: var(--glass-surface) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+  border-color: var(--color-border) !important;
+  box-shadow: var(--card-shadow);
+  color: var(--color-text);
+}
+
+.day-pill-btn.active,
+.target-pill-btn.active {
+  background: var(--gradient-brand) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+  box-shadow: 0 4px 16px rgba(113, 64, 216, 0.35) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .timetable-card h3,
+  .attendance-subject-card h3,
+  .subject-title-area h3,
+  .timetable-header h1,
+  .attendance-header h1,
+  .progress-center-text .pct-number,
+  .card-top-meta,
+  .card-footer-info strong,
+  .notification-item strong,
+  .notification-heading,
+  .conversation-list-heading h1,
+  .message-bubble strong,
+  .message-bubble p,
+  .publish-mode-label strong,
+  .discussion-comment > p {
+    color: var(--color-text) !important;
+  }
+
+  .time-badge,
+  .hero-friendly-message,
+  .publish-sublist,
+  .session-expired,
+  .action-toast {
+    background: var(--glass-sub-surface) !important;
+    border-color: var(--color-border) !important;
+    color: var(--color-text) !important;
+  }
+
+  .time-badge,
+  .timetable-header p,
+  .attendance-header p,
+  .progress-center-text .pct-label,
+  .target-selector-row span,
+  .notification-item span,
+  .notification-item small,
+  .conversation-list-item small,
+  .message-bubble small,
+  .publish-mode-label small,
+  .discussion-comment-heading {
+    color: var(--color-muted) !important;
+  }
+
+  .circle-bg {
+    stroke: rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .timetable-card::before {
+    opacity: 0.95;
+  }
+
+  .message-bubble.mine {
+    background: rgba(135, 88, 245, 0.15) !important;
+    border-color: rgba(135, 88, 245, 0.3) !important;
+  }
+}
+
+
 
