@@ -57,6 +57,8 @@ import FileViewerModal from './components/FileViewerModal.jsx'
 import studyosMark from './assets/studyos-mark.png'
 import campassistIcon from './assets/campassist-icon.png'
 import BrandBackdrop from './components/BrandBackdrop.jsx'
+import { useAndroidAppShell } from './hooks/useAndroidAppShell.js'
+import { androidBridge } from './lib/androidBridge.js'
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, key: 'dashboard' },
@@ -112,9 +114,31 @@ const normalizeProject = (project) => ({
 
 function App() {
   const { user, profile, session, signOut, resendVerification, reloadProfile } = useAuth()
-  const [activePage, setActivePage] = useState('dashboard')
+  const [activePage, setActivePage] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const param = new URLSearchParams(window.location.search).get('tab')
+      if (param && ['dashboard', 'classes', 'vault', 'projects', 'teams', 'skills', 'account'].includes(param)) {
+        return param
+      }
+    }
+    return 'dashboard'
+  })
   const [showOnboardingModal, setShowOnboardingModal] = useState(false)
   const onboardingCheckedRef = useRef(false)
+
+  // Native Android Shell Integration
+  useAndroidAppShell(
+    (tabId) => {
+      if (tabId && ['dashboard', 'classes', 'vault', 'projects', 'teams', 'skills', 'account'].includes(tabId)) {
+        setActivePage(tabId)
+      }
+    },
+    (query) => {
+      if (query) {
+        setSearch(query)
+      }
+    }
+  )
 
   useEffect(() => {
     if (activePage) {

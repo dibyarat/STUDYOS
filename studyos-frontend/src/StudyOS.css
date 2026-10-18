@@ -212,3 +212,38 @@ nav {
   line-height: 1.5;
   margin: 6px 0 0;
 }
+
+/* ========================================================
+   HYBRID ANDROID APP SHELL ADAPTATIONS
+   ======================================================== */
+body.in-android-shell {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-y: none;
+}
+
+body.in-android-shell button,
+body.in-android-shell a,
+body.in-android-shell nav,
+body.in-android-shell [role="tab"],
+body.in-android-shell [role="button"] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Hide redundant web chrome in Android shell */
+body.in-android-shell .sidebar,
+body.in-android-shell .mobile-nav-backdrop,
+body.in-android-shell header,
+body.in-android-shell footer,
+body.in-android-shell .site-footer {
+  display: none !important;
+}
+
+body.in-android-shell .main-content {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  padding-bottom: 24px !important;
+}
+
