@@ -142,11 +142,13 @@ function matchesWhere(item: Record<string, any>, where: any): boolean {
       continue;
     }
 
-    // Synonym handling for teamId and teamPostId
+    // Synonym handling for teamId and teamPostId, and foreign keys
     let val = item[key];
     if (val === undefined) {
       if (key === 'teamId') val = item['teamPostId'];
       else if (key === 'teamPostId') val = item['teamId'];
+      else if (key === 'creatorId') val = item.creator?.connect?.id || item.creator?.id || item.uploaderId;
+      else if (key === 'userId') val = item.user?.connect?.id || item.user?.id;
     }
 
     if (condition && typeof condition === 'object' && !Array.isArray(condition) && !(condition instanceof Date)) {
@@ -604,6 +606,16 @@ export class FirestoreCollection<T extends Record<string, any> = Record<string, 
       updatedAt: now,
     };
 
+    if (args.data.creator?.connect?.id && !docData.creatorId) {
+      docData.creatorId = args.data.creator.connect.id;
+    }
+    if (args.data.user?.connect?.id && !docData.userId) {
+      docData.userId = args.data.user.connect.id;
+    }
+    if (args.data.author?.connect?.id && !docData.authorId) {
+      docData.authorId = args.data.author.connect.id;
+    }
+
     // Handle nested creates
     if (args.data.files?.create) {
       const filesCol = new FirestoreCollection('resource_files');
@@ -842,9 +854,12 @@ export class FirestoreCollection<T extends Record<string, any> = Record<string, 
   private async resolveRelations(item: Record<string, any>, include?: Record<string, any>): Promise<Record<string, any>> {
     if (!include || typeof include !== 'object') return item;
     const resolved = { ...item };
+    if (!resolved.creatorId) {
+      resolved.creatorId = item.creator?.connect?.id || item.creator?.id || item.uploaderId || item.userId;
+    }
 
     if (include.creator) {
-      const creatorId = item.creatorId || item.userId;
+      const creatorId = resolved.creatorId || item.creatorId || item.userId;
       if (creatorId) {
         const user = await prisma.user.findUnique({ where: { id: creatorId } });
         resolved.creator = user ? applySelect(user, include.creator.select) : null;
