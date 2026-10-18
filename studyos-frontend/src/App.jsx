@@ -3837,19 +3837,19 @@ function AccountSettings() {
         </form>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div className="account-panel security-panel" style={{ border: '1px solid #e2e8f0', background: '#ffffff', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', height: 'fit-content' }}>
-            <div className="panel-heading" style={{ borderBottomColor: '#f1f5f9', display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <div style={{ display: 'grid', placeItems: 'center', width: 42, height: 42, borderRadius: 13, color: '#2563eb', background: '#eff6ff' }}>
+          <div className="account-panel security-panel" style={{ border: '1px solid var(--color-border)', background: 'var(--glass-surface)', borderRadius: '24px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', height: 'fit-content', backdropFilter: 'blur(20px) saturate(160%)', boxShadow: 'var(--card-shadow)' }}>
+            <div className="panel-heading" style={{ borderBottomColor: 'var(--color-border)', display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <div style={{ display: 'grid', placeItems: 'center', width: 42, height: 42, borderRadius: 13, color: 'var(--color-primary)', background: 'rgba(113, 64, 216, 0.12)' }}>
                 <LockKeyhole size={20} />
               </div>
               <div>
-                <h2 style={{ color: '#0f172a', margin: 0, fontSize: '15px' }}>Security & Credentials</h2>
-                <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: '11px' }}>Password recovery and authentication</p>
+                <h2 style={{ color: 'var(--color-text)', margin: 0, fontSize: '15px' }}>Security & Credentials</h2>
+                <p style={{ color: 'var(--color-muted)', margin: '4px 0 0', fontSize: '11px' }}>Password recovery and authentication</p>
               </div>
             </div>
-            <div style={{ fontSize: '12px', color: '#4b5563', lineHeight: 1.6 }}>
-              <p style={{ margin: 0, fontWeight: 700, color: '#1f2937' }}>Reset Account Password</p>
-              <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#6b7280' }}>
+            <div style={{ fontSize: '12px', color: 'var(--color-text)', lineHeight: 1.6 }}>
+              <p style={{ margin: 0, fontWeight: 700, color: 'var(--color-text)' }}>Reset Account Password</p>
+              <p style={{ margin: '6px 0 0', fontSize: '11px', color: 'var(--color-muted)' }}>
                 Need to update your password? We will send an official Firebase password reset link to <strong>{user?.email}</strong>.
               </p>
               {resetStatus && (

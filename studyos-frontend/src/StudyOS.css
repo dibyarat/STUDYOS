@@ -1,4 +1,203 @@
-:root { --ink:#18233e; --muted:#74809a; --line:#e7eaf3; --surface:rgba(255,255,255,.86); --shadow:0 14px 35px rgba(55,69,112,.08); }
-body{background:#f8f9fd;color:var(--ink)}
-.app-shell{min-height:100vh;display:flex;background:radial-gradient(circle at 83% 8%,rgba(251,224,247,.8),transparent 30%),radial-gradient(circle at 58% 25%,rgba(220,233,255,.65),transparent 34%),#f8f9fd}.sidebar{width:244px;flex-shrink:0;height:100vh;position:sticky;top:0;overflow-y:auto;padding:18px 14px 20px;background:rgba(255,255,255,.78);border-right:1px solid #e2e6f2;display:flex;flex-direction:column}.brand{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;font-size:18px;letter-spacing:-.6px;color:#15203d}.brand strong span,.mobile-brand span{color:#8355ef}.brand small{margin-left:2px;padding:3px 7px;border-radius:5px;color:#3e6fd9;background:#e8f0ff;font-size:10px;font-weight:700}.brand-mark{width:25px;height:25px;display:grid;place-items:center;color:white;border-radius:8px;background:linear-gradient(135deg,#458bf8,#d74edb);box-shadow:0 5px 10px rgba(105,97,232,.22)}.nav-label{margin:26px 12px 9px;color:#9aa5bb;font-size:10px;font-weight:800;letter-spacing:.04em}.account-label{margin-top:25px}nav{display:grid;gap:4px}.nav-item{border:0;background:transparent;width:100%;display:flex;align-items:center;gap:12px;padding:10px 12px;color:#64708a;border-radius:9px;text-align:left;font-size:12px;transition:.18s}.nav-item:hover{background:#f3f5fd;color:#415a95}.nav-item.active{color:white;background:linear-gradient(100deg,#2798ed,#e54aaa);box-shadow:0 8px 16px rgba(194,92,223,.2)}.nav-item i{font-style:normal;margin-left:auto;background:#f24772;color:white;min-width:19px;height:19px;display:grid;place-items:center;border-radius:10px;font-size:10px}.campusmate-card{margin-top:auto;padding:13px 12px 12px;border:1px solid #e4e7f2;border-radius:12px;background:linear-gradient(135deg,#fbfdff,#f9f7ff);font-size:12px}.cm-logo{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:5px;background:#3979f0;color:white;font-size:13px;margin-right:7px}.campusmate-card strong{font-size:12px}.campusmate-card button{margin-top:12px;padding:0;display:flex;gap:9px;align-items:center;border:0;background:transparent;color:#477ef0;font-size:11px;font-weight:700}.campusmate-card p{color:#8290a9;font-size:10px;line-height:1.55;margin:7px 0 0}
+/* StudyOS Base Shell Styles (HayonCampus Design System) */
 
+:root {
+  --ink: var(--color-text, #17181C);
+  --muted: var(--color-muted, #615B76);
+  --line: var(--color-border, rgb(37 28 61 / 14%));
+  --surface: var(--glass-surface, color-mix(in srgb, #FFFFFF 82%, transparent));
+  --shadow: var(--card-shadow, 0 30px 60px -30px rgb(113 64 216 / 20%));
+}
+
+body {
+  background-color: var(--color-bg, #FAFAFC);
+  color: var(--ink);
+  font-family: var(--font-body, 'Geist', -apple-system, BlinkMacSystemFont, sans-serif);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  background-color: var(--color-bg, #FAFAFC);
+  background-image: 
+    radial-gradient(circle at 10% 15%, rgba(25, 163, 233, 0.08), transparent 45%),
+    radial-gradient(circle at 90% 85%, rgba(217, 70, 168, 0.08), transparent 45%);
+  color: var(--ink);
+  position: relative;
+}
+
+.sidebar {
+  width: 250px;
+  flex-shrink: 0;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  overflow-y: auto;
+  padding: 18px 14px 20px;
+  background: var(--glass-surface, rgba(255, 255, 255, 0.82));
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border-right: 1px solid var(--color-border, rgb(37 28 61 / 14%));
+  display: flex;
+  flex-direction: column;
+  z-index: 30;
+  box-shadow: var(--card-shadow);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 10px;
+  font-size: 20px;
+  letter-spacing: -0.6px;
+  color: var(--color-text);
+  font-family: var(--font-wordmark, 'Baloo 2', sans-serif);
+  font-weight: 800;
+}
+
+.brand strong {
+  font-family: var(--font-wordmark, 'Baloo 2', sans-serif);
+  font-weight: 800;
+  color: #7140D8;
+}
+
+.brand strong span,
+.mobile-brand span {
+  color: #D946A8;
+}
+
+.brand small {
+  margin-left: 4px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  color: #19A3E9;
+  background: rgba(25, 163, 233, 0.12);
+  border: 1px solid rgba(25, 163, 233, 0.2);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: white;
+  border-radius: 10px;
+  background: var(--gradient-brand);
+  box-shadow: 0 4px 12px rgba(113, 64, 216, 0.3);
+}
+
+.nav-label {
+  margin: 24px 14px 8px;
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.account-label {
+  margin-top: 24px;
+}
+
+nav {
+  display: grid;
+  gap: 4px;
+}
+
+.nav-item {
+  border: 0;
+  background: transparent;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  color: var(--color-muted);
+  border-radius: 9999px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-body, 'Geist', sans-serif);
+  transition: all 0.18s ease;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  background: rgba(113, 64, 216, 0.08);
+  color: var(--color-text);
+}
+
+.nav-item.active {
+  color: white;
+  background: var(--gradient-brand);
+  box-shadow: 0 4px 16px rgba(113, 64, 216, 0.35);
+  font-weight: 600;
+}
+
+.nav-item i {
+  font-style: normal;
+  margin-left: auto;
+  background: #D946A8;
+  color: white;
+  min-width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 4px;
+}
+
+.campusmate-card {
+  margin-top: auto;
+  padding: 16px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: var(--glass-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--card-shadow);
+  font-size: 12px;
+}
+
+.cm-logo {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: #19A3E9;
+  color: white;
+  font-size: 13px;
+  margin-right: 7px;
+}
+
+.campusmate-card strong {
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.campusmate-card button {
+  margin-top: 12px;
+  padding: 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.campusmate-card p {
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 6px 0 0;
+}
