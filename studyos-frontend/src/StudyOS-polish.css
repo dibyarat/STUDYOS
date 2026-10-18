@@ -386,34 +386,82 @@ select {
 }
 
 @media (max-width: 900px) {
-  .sidebar {
-    position: fixed;
-    z-index: 51;
-    inset: 0 auto 0 0;
-    width: min(280px, calc(100vw - 56px));
-    height: 100dvh;
-    transform: translateX(-105%);
-    transition: transform .2s ease;
-    box-shadow: 12px 0 35px rgba(32, 44, 87, .14);
+  .app-shell {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
   }
 
-  .sidebar.is-open {
-    transform: translateX(0);
+  .sidebar,
+  .app-shell > aside,
+  .app-shell > aside.sidebar {
+    position: fixed !important;
+    z-index: 9999 !important;
+    inset: 0 auto 0 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: min(280px, calc(100vw - 56px)) !important;
+    height: 100dvh !important;
+    transform: translateX(-105%) !important;
+    transition: transform .2s ease !important;
+    box-shadow: 12px 0 35px rgba(32, 44, 87, .14) !important;
+    margin: 0 !important;
+  }
+
+  .sidebar.is-open,
+  .app-shell > aside.is-open,
+  .app-shell > aside.sidebar.is-open {
+    transform: translateX(0) !important;
   }
 
   .mobile-nav-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 50;
-    display: block;
-    width: 100%;
-    height: 100%;
-    border: 0;
-    background: rgba(24, 34, 62, .38);
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9998 !important;
+    display: block !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    border: 0 !important;
+    background: rgba(18, 15, 36, 0.65) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
   }
 
-  .main-content {
-    width: 100%;
+  .main-content,
+  .app-shell > main,
+  .app-shell > main.main-content {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    flex: none !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .topbar {
+    width: 100% !important;
+    max-width: 100% !important;
+    gap: 12px;
+    box-sizing: border-box !important;
+  }
+
+  .page-body {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .welcome-banner {
+    padding: 22px 18px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .welcome-banner .hero-art {
+    display: none !important;
   }
 
   .mobile-menu,
@@ -445,11 +493,6 @@ select {
 
   .mobile-brand strong {
     font-size: 14px;
-  }
-
-  .topbar {
-    width: 100%;
-    gap: 12px;
   }
 }
 
@@ -532,6 +575,28 @@ select {
   .page-heading .hero-actions {
     width: 100%;
     flex-wrap: wrap;
+  }
+
+  .welcome-banner h1 {
+    font-size: 20px !important;
+    line-height: 1.25 !important;
+  }
+
+  .welcome-copy {
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+  }
+
+  .welcome-banner .hero-actions {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .welcome-banner .hero-actions .button {
+    flex: 1 1 130px !important;
+    min-height: 38px !important;
+    font-size: 12px !important;
   }
 
   .vault-toolbar {

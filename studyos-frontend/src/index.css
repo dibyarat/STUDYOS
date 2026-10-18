@@ -168,7 +168,13 @@ button {
   background: transparent !important;
 }
 
-.app-shell > aside,
+@media (min-width: 901px) {
+  .app-shell > aside {
+    position: relative;
+    z-index: 10;
+  }
+}
+
 .app-shell > main,
 .app-shell > div:not(.fixed-backdrop) {
   position: relative;
