@@ -388,13 +388,13 @@ export default function LandingPage({ initialShowLogin = false }) {
         <div className="landing-footer-container">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <img src={studyosMark} alt="StudyOS" style={{ width: 22, height: 22, objectFit: 'contain' }} />
-            <strong style={{ color: '#0f172a' }}>StudyOS</strong>
-            <span>&copy; {new Date().getFullYear()} StudyOS. Built for students, powered by campus.</span>
+            <strong className="font-wordmark" style={{ color: 'var(--color-primary)', fontSize: 18 }}>Study<span style={{ color: 'var(--color-accent)' }}>OS</span></strong>
+            <span style={{ color: 'var(--color-muted)' }}>&copy; {new Date().getFullYear()} StudyOS. Part of the Hayoncampus student ecosystem.</span>
           </div>
           <div>
             <a
               href={import.meta.env.VITE_CAMPUSMATE_URL || 'https://campassist.me'}
-              style={{ color: '#64748b', textDecoration: 'none', fontWeight: 600 }}
+              style={{ color: 'var(--color-muted)', textDecoration: 'none', fontWeight: 600 }}
               target="_blank"
               rel="noreferrer"
             >
