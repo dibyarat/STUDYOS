@@ -82,8 +82,8 @@ button {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(680px, 80vw);
-  height: min(680px, 80vw);
+  width: min(520px, 65vw);
+  height: min(520px, 65vw);
   border-radius: 50%;
   background: radial-gradient(circle, rgba(113, 64, 216, 0.35) 0%, rgba(217, 70, 168, 0.22) 42%, rgba(25, 163, 233, 0.12) 65%, transparent 75%);
   filter: blur(80px);
@@ -102,8 +102,8 @@ button {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(720px, 80vw);
-  max-height: 80vh;
+  width: min(540px, 65vw);
+  max-height: 62vh;
   opacity: var(--backdrop-mark-opacity, 0.20);
   filter: drop-shadow(0 0 35px rgba(113, 64, 216, 0.65))
           drop-shadow(0 0 75px rgba(217, 70, 168, 0.45))
