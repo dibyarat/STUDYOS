@@ -1107,6 +1107,16 @@ select {
     background: rgba(135, 88, 245, 0.15) !important;
     border-color: rgba(135, 88, 245, 0.3) !important;
   }
+
+  select option {
+    background-color: var(--color-card, #1B1733) !important;
+    color: var(--color-text, #FFFFFF) !important;
+  }
+}
+
+select option {
+  background-color: var(--color-card, #FFFFFF);
+  color: var(--color-text, #17181C);
 }
 
 
