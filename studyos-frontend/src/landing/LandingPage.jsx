@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ArrowRight,
   BookOpen,
@@ -135,9 +136,10 @@ export default function LandingPage({ initialShowLogin = false }) {
   }
 
   const openLogin = (mode = 'signin') => {
+    const targetMode = (typeof mode === 'string' && (mode === 'signup' || mode === 'forgot')) ? mode : 'signin'
     setError('')
     setStatusMessage('')
-    setAuthMode(mode)
+    setAuthMode(targetMode)
     setShowLoginModal(true)
   }
 
@@ -150,6 +152,24 @@ export default function LandingPage({ initialShowLogin = false }) {
       setConfirmPassword('')
     }
   }
+
+  useEffect(() => {
+    if (!showLoginModal) return
+
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && !submitting) {
+        closeLogin()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = originalOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [showLoginModal, submitting])
 
   const features = [
     {
@@ -215,10 +235,10 @@ export default function LandingPage({ initialShowLogin = false }) {
           </nav>
 
           <div className="landing-nav-actions">
-            <button type="button" className="landing-btn-login" onClick={openLogin}>
+            <button type="button" className="landing-btn-login" onClick={() => openLogin('signin')}>
               Sign In
             </button>
-            <button type="button" className="landing-btn-primary" onClick={openLogin}>
+            <button type="button" className="landing-btn-primary" onClick={() => openLogin('signup')}>
               Get Started <ArrowRight size={15} />
             </button>
           </div>
@@ -242,8 +262,11 @@ export default function LandingPage({ initialShowLogin = false }) {
         </p>
 
         <div className="landing-hero-cta">
-          <button type="button" className="landing-btn-primary" onClick={openLogin}>
+          <button type="button" className="landing-btn-primary" onClick={() => openLogin('signup')}>
             Launch Workspace <ArrowRight size={16} />
+          </button>
+          <button type="button" className="landing-btn-login-hero" onClick={() => openLogin('signin')}>
+            Sign In
           </button>
           <a href="#features" className="landing-btn-secondary">
             Explore Features
@@ -379,9 +402,14 @@ export default function LandingPage({ initialShowLogin = false }) {
           <p>
             Join your classmates on StudyOS today. Sign in with your existing student account to get instant access to notes, classes, and projects.
           </p>
-          <button type="button" className="landing-btn-primary" onClick={openLogin}>
-            Get Started Now <ArrowRight size={16} />
-          </button>
+          <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button type="button" className="landing-btn-primary" onClick={() => openLogin('signup')}>
+              Get Started Now <ArrowRight size={16} />
+            </button>
+            <button type="button" className="landing-btn-secondary" onClick={() => openLogin('signin')}>
+              Sign In
+            </button>
+          </div>
         </div>
       </section>
 
@@ -406,8 +434,8 @@ export default function LandingPage({ initialShowLogin = false }) {
         </div>
       </footer>
 
-      {/* Authentication Modal */}
-      {showLoginModal && (
+      {/* Authentication Modal rendered into document.body to guarantee viewport positioning */}
+      {showLoginModal && typeof document !== 'undefined' && createPortal(
         <div className="landing-modal-backdrop" onClick={closeLogin}>
           <div className="landing-modal-card" onClick={(e) => e.stopPropagation()}>
             <button type="button" className="landing-modal-close" onClick={closeLogin} aria-label="Close modal">
@@ -597,7 +625,8 @@ export default function LandingPage({ initialShowLogin = false }) {
               Secure authentication powered by Firebase Auth.
             </p>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

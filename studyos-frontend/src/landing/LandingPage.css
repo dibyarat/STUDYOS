@@ -69,7 +69,7 @@
 .studyos-landing > header,
 .studyos-landing > section,
 .studyos-landing > footer,
-.studyos-landing > div:not(.fixed-backdrop) {
+.studyos-landing > div:not(.fixed-backdrop):not(.landing-modal-backdrop) {
   position: relative;
   z-index: 10;
 }
@@ -229,6 +229,31 @@
 }
 
 .landing-btn-secondary:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary) !important;
+  transform: translateY(-1px);
+}
+
+.landing-btn-login-hero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--glass-surface);
+  color: var(--color-text) !important;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 14px 28px;
+  min-height: 52px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--color-border);
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: var(--card-shadow);
+  transition: all 0.15s ease;
+}
+
+.landing-btn-login-hero:hover {
   border-color: var(--color-primary);
   color: var(--color-primary) !important;
   transform: translateY(-1px);
@@ -748,27 +773,39 @@
 
 /* Sign-In Modal */
 .landing-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  background: rgba(11, 16, 32, 0.65);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  display: grid;
-  place-items: center;
-  padding: 20px;
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 99999 !important;
+  background: rgba(11, 16, 32, 0.75) !important;
+  backdrop-filter: blur(10px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(140%) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 20px !important;
+  box-sizing: border-box !important;
+  overflow-y: auto !important;
   animation: modalFadeIn 0.2s ease-out;
 }
 
 .landing-modal-card {
   width: min(440px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
   background: var(--color-card);
   border-radius: 28px;
-  box-shadow: 0 30px 60px rgba(113, 64, 216, 0.35);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45), 0 0 40px rgba(113, 64, 216, 0.25);
   border: 1px solid var(--color-border);
   padding: 36px 32px;
   position: relative;
   animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
 }
 
 .landing-modal-close {
@@ -1025,6 +1062,7 @@
 
   .landing-hero-cta .landing-btn-primary,
   .landing-hero-cta .landing-btn-secondary,
+  .landing-hero-cta .landing-btn-login-hero,
   .companion-btn {
     width: 100%;
     justify-content: center;
