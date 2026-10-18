@@ -2,7 +2,7 @@
   /* Semantic Tokens (HayonCampus Design System) */
   --color-bg: #FAFAFC;
   --color-text: #17181C;
-  --color-card: #FFFFFF;
+  --color-card: rgba(255, 255, 255, 0.72);
   --color-muted: #615B76;
   --color-border: rgb(37 28 61 / 14%);
   --color-primary: #7140D8;
@@ -12,8 +12,9 @@
   --glass-surface: rgba(255, 255, 255, 0.68);
   --glass-sub-surface: rgba(255, 255, 255, 0.45);
   --card-shadow: 0 30px 60px -30px rgb(113 64 216 / 20%);
-  --glow-blue: rgba(25, 163, 233, 0.22);
-  --glow-pink: rgba(217, 70, 168, 0.20);
+  --glow-blue: rgba(25, 163, 233, 0.26);
+  --glow-pink: rgba(217, 70, 168, 0.22);
+  --backdrop-mark-opacity: 0.18;
 
   /* Typography */
   --font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -31,18 +32,19 @@
   :root {
     --color-bg: #120F24;
     --color-text: #FFFFFF;
-    --color-card: #1B1733;
+    --color-card: rgba(27, 23, 51, 0.72);
     --color-muted: #A9A4C4;
     --color-border: rgba(255, 255, 255, 0.12);
     --color-primary: #8758F5;
     --color-accent: #D946A8;
     --color-blue: #19A3E9;
     --gradient-brand: linear-gradient(120deg, #19A3E9, #8758F5 50%, #D946A8);
-    --glass-surface: rgba(255, 255, 255, 0.06);
+    --glass-surface: rgba(255, 255, 255, 0.07);
     --glass-sub-surface: rgba(255, 255, 255, 0.04);
     --card-shadow: 0 30px 60px -30px rgb(0 0 0 / 55%);
-    --glow-blue: rgba(25, 163, 233, 0.28);
-    --glow-pink: rgba(217, 70, 168, 0.25);
+    --glow-blue: rgba(25, 163, 233, 0.32);
+    --glow-pink: rgba(217, 70, 168, 0.28);
+    --backdrop-mark-opacity: 0.24;
   }
 }
 
@@ -51,6 +53,7 @@ body {
   font-family: var(--font-family);
   background-color: var(--color-bg);
   color: var(--color-text);
+  overflow-x: hidden;
 }
 
 * {
@@ -65,6 +68,90 @@ button {
   cursor: pointer;
 }
 
+/* Fixed ambient backdrop with floating StudyOS symbol */
+.fixed-backdrop {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.backdrop-aura {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(680px, 80vw);
+  height: min(680px, 80vw);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(113, 64, 216, 0.35) 0%, rgba(217, 70, 168, 0.22) 42%, rgba(25, 163, 233, 0.12) 65%, transparent 75%);
+  filter: blur(80px);
+  pointer-events: none;
+  animation: auraPulse 10s ease-in-out infinite alternate;
+}
+
+@keyframes auraPulse {
+  0% { transform: translate(-50%, -50%) scale(0.94); opacity: 0.8; }
+  50% { transform: translate(-50%, -50%) scale(1.06); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(0.97); opacity: 0.85; }
+}
+
+.backdrop-logo-mark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(720px, 80vw);
+  max-height: 80vh;
+  opacity: var(--backdrop-mark-opacity, 0.20);
+  filter: drop-shadow(0 0 35px rgba(113, 64, 216, 0.65))
+          drop-shadow(0 0 75px rgba(217, 70, 168, 0.45))
+          drop-shadow(0 20px 45px rgba(25, 163, 233, 0.35));
+  object-fit: contain;
+  user-select: none;
+  transition: opacity 0.3s ease;
+  animation: floatBackdrop 14s ease-in-out infinite alternate;
+}
+
+@keyframes floatBackdrop {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  50% { transform: translate(-50%, -52%) rotate(0.7deg); }
+  100% { transform: translate(-50%, -48%) rotate(-0.7deg); }
+}
+
+.glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  pointer-events: none;
+  animation: slowDrift 16s ease-in-out infinite alternate;
+}
+
+.glow-top-left {
+  top: -12%;
+  left: -10%;
+  width: min(650px, 65vw);
+  height: min(650px, 65vw);
+  background: radial-gradient(circle, var(--glow-blue) 0%, transparent 70%);
+}
+
+.glow-bottom-right {
+  bottom: -15%;
+  right: -10%;
+  width: min(750px, 70vw);
+  height: min(750px, 70vw);
+  background: radial-gradient(circle, var(--glow-pink) 0%, transparent 70%);
+  animation-duration: 20s;
+  animation-delay: -6s;
+}
+
+@keyframes slowDrift {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(30px, 25px) scale(1.08); }
+  100% { transform: translate(-20px, -20px) scale(0.96); }
+}
+
 /* Glassmorphism utility */
 .glass {
   background: var(--glass-surface);
@@ -72,6 +159,81 @@ button {
   -webkit-backdrop-filter: blur(20px) saturate(160%);
   border: 1px solid var(--color-border);
   box-shadow: var(--card-shadow);
+}
+
+/* App Shell positioning relative to fixed-backdrop */
+.app-shell {
+  position: relative;
+  min-height: 100vh;
+  background: transparent !important;
+}
+
+.app-shell > aside,
+.app-shell > main,
+.app-shell > div:not(.fixed-backdrop) {
+  position: relative;
+  z-index: 10;
+}
+
+.sidebar {
+  background: var(--glass-surface) !important;
+  backdrop-filter: blur(24px) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(170%) !important;
+  border-right: 1px solid var(--color-border) !important;
+}
+
+.topbar {
+  background: var(--glass-surface) !important;
+  backdrop-filter: blur(24px) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(170%) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+}
+
+/* Ensure cards and panels have translucent glassmorphism */
+.stat-card,
+.section-card,
+.class-card,
+.welcome-banner,
+.campusmate-card,
+.card,
+.modal-card,
+.modal-content,
+.search-results-panel,
+.day-pill-btn,
+.section-pill-selector,
+.resource-card,
+.project-card,
+.team-card,
+.skill-card,
+.auth-card,
+.notification-popover,
+.vault-item,
+.vault-row,
+.class-item,
+.project-item,
+.team-post-card,
+.help-card,
+.account-card,
+.timetable-card,
+.attendance-card,
+.slot-card,
+.hero-mockup-wrap,
+.landing-feature-card,
+.companion-card {
+  background: var(--glass-surface) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: var(--card-shadow) !important;
+}
+
+.stat-card:hover,
+.class-card:hover,
+.day-pill-btn:hover,
+.team-post-card:hover,
+.landing-feature-card:hover {
+  background: var(--glass-sub-surface) !important;
+  border-color: var(--color-primary) !important;
 }
 
 /* Brand Wordmark */

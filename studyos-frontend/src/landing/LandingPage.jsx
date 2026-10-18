@@ -22,6 +22,7 @@ import {
 import { useAuth } from '../auth/useAuth.js'
 import studyosMark from '../assets/studyos-mark.png'
 import campassistIcon from '../assets/campassist-icon.png'
+import BrandBackdrop from '../components/BrandBackdrop.jsx'
 import './LandingPage.css'
 
 export default function LandingPage({ initialShowLogin = false }) {
@@ -197,6 +198,7 @@ export default function LandingPage({ initialShowLogin = false }) {
 
   return (
     <div className="studyos-landing">
+      <BrandBackdrop />
       {/* Header / Navbar */}
       <header className="landing-header">
         <div className="landing-nav-container">

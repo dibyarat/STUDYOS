@@ -56,6 +56,7 @@ import AcademicOnboardingModal from './auth/AcademicOnboardingModal.jsx'
 import FileViewerModal from './components/FileViewerModal.jsx'
 import studyosMark from './assets/studyos-mark.png'
 import campassistIcon from './assets/campassist-icon.png'
+import BrandBackdrop from './components/BrandBackdrop.jsx'
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, key: 'dashboard' },
@@ -1842,6 +1843,7 @@ function App() {
 
   return (
     <div className="app-shell">
+      <BrandBackdrop />
       {mobileOpen && <button className="mobile-nav-backdrop" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />}
       <aside className={`sidebar ${mobileOpen ? 'is-open' : ''}`}>
         <div className="brand"><span className="studyos-logo-mark"><img src={studyosMark} alt="" /></span><strong>Study<span>OS</span></strong><small>CSE</small></div>

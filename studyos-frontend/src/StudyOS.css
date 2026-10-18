@@ -18,12 +18,17 @@ body {
 .app-shell {
   min-height: 100vh;
   display: flex;
-  background-color: var(--color-bg, #FAFAFC);
-  background-image: 
-    radial-gradient(circle at 10% 15%, rgba(25, 163, 233, 0.08), transparent 45%),
-    radial-gradient(circle at 90% 85%, rgba(217, 70, 168, 0.08), transparent 45%);
-  color: var(--ink);
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--color-text, var(--ink));
   position: relative;
+}
+
+.app-shell > aside,
+.app-shell > main,
+.app-shell > div:not(.fixed-backdrop) {
+  position: relative;
+  z-index: 10;
 }
 
 .sidebar {

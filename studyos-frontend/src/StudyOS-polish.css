@@ -650,24 +650,24 @@ select {
   align-items: center !important;
   gap: 12px !important;
   padding: 12px 14px !important;
-  border: 1.5px solid #e1e7f0 !important;
+  border: 1.5px solid var(--color-border) !important;
   border-radius: 12px !important;
-  background: #ffffff !important;
+  background: var(--glass-surface) !important;
   cursor: pointer !important;
   font-size: 13px !important;
   font-weight: 600 !important;
-  color: #26334d !important;
+  color: var(--color-text) !important;
   transition: all 0.18s ease;
 }
 
 .publish-mode-card:hover {
   border-color: #9ab3f5 !important;
-  background: #f7f9fe !important;
+  background: var(--glass-sub-surface) !important;
 }
 
 .publish-mode-card.is-selected {
   border-color: #4f7bf0 !important;
-  background: #f0f5ff !important;
+  background: var(--glass-sub-surface) !important;
   box-shadow: 0 0 0 1px #4f7bf0;
 }
 
@@ -707,21 +707,21 @@ select {
   gap: 10px !important;
   padding: 8px 10px !important;
   border-radius: 8px !important;
-  background: #ffffff !important;
-  border: 1px solid #edf2f7 !important;
+  background: var(--glass-surface) !important;
+  border: 1px solid var(--color-border) !important;
   cursor: pointer !important;
   font-size: 12px !important;
   font-weight: 500 !important;
-  color: #334155 !important;
+  color: var(--color-text) !important;
   transition: background 0.15s ease;
 }
 
 .publish-subitem:hover {
-  background: #f1f5f9 !important;
+  background: var(--glass-sub-surface) !important;
 }
 
 .publish-subitem.is-checked {
-  background: #eff6ff !important;
+  background: var(--glass-sub-surface) !important;
   border-color: #bfdbfe !important;
 }
 
@@ -801,11 +801,13 @@ select {
 .resource-detail-desc {
   font-size: 13px;
   line-height: 1.6;
-  color: #334155;
-  background: #ffffff;
+  color: var(--color-text);
+  background: var(--glass-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   padding: 14px;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   margin-bottom: 14px;
   white-space: pre-wrap;
 }
@@ -823,8 +825,10 @@ select {
   justify-content: space-between;
   padding: 12px 14px;
   border-radius: 10px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  background: var(--glass-sub-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
 }
 
 /* Account Settings Profile Enhancements */

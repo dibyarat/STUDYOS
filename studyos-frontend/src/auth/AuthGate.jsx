@@ -3,6 +3,7 @@ import { GraduationCap, LockKeyhole } from 'lucide-react'
 import { useAuth } from './useAuth.js'
 import studyosMark from '../assets/studyos-mark.png'
 import LandingPage from '../landing/LandingPage.jsx'
+import BrandBackdrop from '../components/BrandBackdrop.jsx'
 import '../StudyOS-auth.css'
 
 function AuthGate({ children }) {
@@ -15,6 +16,18 @@ function AuthGate({ children }) {
   return <LandingPage />
 }
 
-function AuthMessage({ title, description, loading = false }) { return <main className="auth-screen"><section className="auth-card auth-message"><div className="auth-brand"><span className="studyos-logo-mark"><img src={studyosMark} alt="" /></span><strong>Study<span>OS</span></strong></div><div className={`auth-icon ${loading ? 'pulse' : ''}`}><LockKeyhole size={21} /></div><h1>{title}</h1><p className="auth-copy">{description}</p></section></main> }
+function AuthMessage({ title, description, loading = false }) {
+  return (
+    <main className="auth-screen" style={{ position: 'relative' }}>
+      <BrandBackdrop />
+      <section className="auth-card auth-message" style={{ position: 'relative', zIndex: 10 }}>
+        <div className="auth-brand"><span className="studyos-logo-mark"><img src={studyosMark} alt="" /></span><strong>Study<span>OS</span></strong></div>
+        <div className={`auth-icon ${loading ? 'pulse' : ''}`}><LockKeyhole size={21} /></div>
+        <h1>{title}</h1>
+        <p className="auth-copy">{description}</p>
+      </section>
+    </main>
+  )
+}
 
 export default AuthGate

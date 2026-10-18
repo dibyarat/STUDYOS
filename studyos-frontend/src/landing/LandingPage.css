@@ -60,9 +60,18 @@
   flex-direction: column;
   font-family: var(--font-family);
   color: var(--color-text);
-  background: var(--color-bg);
+  background: transparent !important;
+  position: relative;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+}
+
+.studyos-landing > header,
+.studyos-landing > section,
+.studyos-landing > footer,
+.studyos-landing > div:not(.fixed-backdrop) {
+  position: relative;
+  z-index: 10;
 }
 
 .studyos-landing :focus-visible {
