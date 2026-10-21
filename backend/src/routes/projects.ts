@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
-import { sensitiveLimiter } from '../middleware/rate-limit';
+import { sensitiveLimiter, uploadLimiter } from '../middleware/rate-limit';
 import multer from 'multer';
 import { uploadResourceFile, InvalidResourceFileError } from '../lib/storage';
 import { deleteFromCloudinary, buildAttachmentUrl, buildCleanPreviewUrl } from '../lib/cloudinary';
@@ -101,7 +101,7 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
 });
 
 // POST / - Create project
-router.post('/', sensitiveLimiter, requireAuth, upload.single('file'), async (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, uploadLimiter, upload.single('file'), async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -306,7 +306,7 @@ router.delete('/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
 });
 
 // POST /:id/files - Upload file to project
-router.post('/:id/files', requireAuth, upload.single('file'), async (req: AuthenticatedRequest, res) => {
+router.post('/:id/files', requireAuth, uploadLimiter, upload.single('file'), async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -451,7 +451,7 @@ router.get('/labs/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
   }
 });
 
-router.post('/labs', requireAuth, upload.single('file'), async (req: AuthenticatedRequest, res) => {
+router.post('/labs', requireAuth, uploadLimiter, upload.single('file'), async (req: AuthenticatedRequest, res) => {
   try {
     const name = String(req.body?.name || '').trim();
     const description = String(req.body?.description || '').trim();
@@ -492,7 +492,7 @@ router.post('/labs', requireAuth, upload.single('file'), async (req: Authenticat
   }
 });
 
-router.put('/labs/:id', requireAuth, upload.single('file'), async (req: AuthenticatedRequest, res) => {
+router.put('/labs/:id', requireAuth, uploadLimiter, upload.single('file'), async (req: AuthenticatedRequest, res) => {
   try {
     const labId = getParam(req.params.id);
     if (!labId) return res.status(400).json({ error: 'Lab ID required' });

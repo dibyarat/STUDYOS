@@ -39,3 +39,4 @@ export function useAndroidAppShell(onNavigateTab, onSearchQuery) {
 
   return { isApp, bridge: androidBridge };
 }
+

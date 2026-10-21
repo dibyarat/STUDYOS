@@ -1,4 +1,4 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { Request, Response } from 'express';
 
 /**
@@ -23,6 +23,20 @@ export const isHealthCheck = (req: Request): boolean => {
 };
 
 /**
+ * Composite Key Generator:
+ * Identifies users by authenticated user ID if available, otherwise by normalized IPv4/IPv6 address.
+ * Prevents NAT collisions for shared campus networks and blocks IP rotation by authenticated accounts.
+ */
+export const compositeKeyGenerator = (req: Request): string => {
+  const user = (req as any).user;
+  if (user?.id) {
+    return `user:${user.id}`;
+  }
+  const rawIp = req.ip || req.socket?.remoteAddress || '127.0.0.1';
+  return ipKeyGenerator(rawIp);
+};
+
+/**
  * General API Limiter:
  * Allows 120 requests per minute per IP address.
  * Generous enough for normal student workflows (page navigation, dashboard polling, asset metadata),
@@ -39,7 +53,7 @@ export const generalLimiter = rateLimit({
 
 /**
  * Sensitive Endpoints Rate Limiter:
- * Stricter limit of 20 requests per minute per IP address for operations like:
+ * 20 requests per minute per user/IP for operations like:
  * - User synchronization (/sync-user)
  * - Profile mutations
  * - Multi-collection search (/search)
@@ -51,6 +65,45 @@ export const sensitiveLimiter = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   skip: isHealthCheck,
+  keyGenerator: compositeKeyGenerator,
   handler: standardRateLimitHandler,
 });
 
+/**
+ * File Upload Limiter:
+ * 5 uploads per minute per user/IP. Prevents process RAM exhaustion and Cloudinary storage/bandwidth abuse.
+ */
+export const uploadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: compositeKeyGenerator,
+  handler: standardRateLimitHandler,
+});
+
+/**
+ * Chat Messaging Limiter:
+ * 20 messages per minute per user. Prevents chat flood spam and transaction cascades.
+ */
+export const messageLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: compositeKeyGenerator,
+  handler: standardRateLimitHandler,
+});
+
+/**
+ * Transaction / State Mutation Limiter:
+ * 15 state mutations per minute per user for serializable transactions in help requests, claims, and teams.
+ */
+export const transactionLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 15,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: compositeKeyGenerator,
+  handler: standardRateLimitHandler,
+});

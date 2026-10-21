@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { randomUUID } from 'node:crypto';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
+import { uploadLimiter } from '../middleware/rate-limit';
 import { Prisma, prisma } from '../lib/prisma';
 import { InvalidResourceFileError, uploadResourceFile } from '../lib/storage';
 import { deleteFromCloudinary, uploadToCloudinary } from '../lib/cloudinary';
@@ -652,6 +653,7 @@ router.post('/:id/topics/:topicId/resources', requireAuth, async (req: Authentic
 router.post(
   '/:id/topics/:topicId/files',
   requireAuth,
+  uploadLimiter,
   (req, res, next) => {
     upload.single('file')(req, res, (error) => {
       if (!error) return next();

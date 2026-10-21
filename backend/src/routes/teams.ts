@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
+import { transactionLimiter } from '../middleware/rate-limit';
 import { Prisma, prisma } from '../lib/prisma';
 
 const router = Router();
@@ -193,7 +194,7 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
   }
 });
 
-router.post('/', requireAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, transactionLimiter, async (req: AuthenticatedRequest, res) => {
   try {
     let input;
     try {
@@ -366,7 +367,7 @@ router.get('/:id/requests', requireAuth, async (req: AuthenticatedRequest, res) 
   }
 });
 
-router.post('/:id/requests', requireAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/:id/requests', requireAuth, transactionLimiter, async (req: AuthenticatedRequest, res) => {
   try {
     const teamId = getParam(req.params.id);
     if (!teamId) return res.status(400).json({ error: 'Missing team id' });
@@ -440,7 +441,7 @@ router.post('/:id/requests/:requestId/withdraw', requireAuth, async (req: Authen
   }
 });
 
-router.patch('/:id/requests/:requestId', requireAuth, async (req: AuthenticatedRequest, res) => {
+router.patch('/:id/requests/:requestId', requireAuth, transactionLimiter, async (req: AuthenticatedRequest, res) => {
   try {
     const teamId = getParam(req.params.id);
     const requestId = getParam(req.params.requestId);

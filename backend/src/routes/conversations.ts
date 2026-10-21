@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
+import { messageLimiter } from '../middleware/rate-limit';
 import { Prisma, prisma } from '../lib/prisma';
 
 const router = Router();
@@ -175,7 +176,7 @@ router.get('/:id/messages', requireAuth, async (req: AuthenticatedRequest, res) 
   }
 });
 
-router.post('/:id/messages', requireAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/:id/messages', requireAuth, messageLimiter, async (req: AuthenticatedRequest, res) => {
   try {
     const id = getParam(req.params.id);
     const content = String(req.body?.content || '').trim();
@@ -185,30 +186,40 @@ router.post('/:id/messages', requireAuth, async (req: AuthenticatedRequest, res)
     const access = await authorizeConversation(id, req.user!.id);
     if (!access) return res.status(403).json({ error: 'You cannot send messages in this conversation' });
 
+    // Fast atomic transaction for message creation and conversation timestamp update
     const message = await prisma.$transaction(async (transaction) => {
       const created = await transaction.message.create({
         data: { conversationId: id, senderId: req.user!.id, content },
         include: messageInclude,
       });
       await transaction.conversation.update({ where: { id }, data: { updatedAt: new Date() } });
-      const recipients = await transaction.conversationMember.findMany({
-        where: { conversationId: id, userId: { not: req.user!.id } },
-        select: { userId: true },
-      });
-      if (recipients.length) {
-        await transaction.notification.createMany({
-          data: recipients.map(({ userId }) => ({
-            recipientId: userId,
-            type: 'NEW_MESSAGE',
-            title: 'New message',
-            message: `${String(req.user!.dbUser?.name || 'A student')} sent you a message.`,
-            relatedEntityType: 'CONVERSATION',
-            relatedEntityId: id,
-          })),
-        });
-      }
       return created;
-    }, { maxWait: 10000, timeout: 20000 });
+    }, { maxWait: 5000, timeout: 5000 });
+
+    // Asynchronously dispatch notifications outside the core message write transaction
+    // Prevents database lock contention and connection pool starvation during active chat sessions
+    (async () => {
+      try {
+        const recipients = await prisma.conversationMember.findMany({
+          where: { conversationId: id, userId: { not: req.user!.id } },
+          select: { userId: true },
+        });
+        if (recipients.length) {
+          await prisma.notification.createMany({
+            data: recipients.map(({ userId }) => ({
+              recipientId: userId,
+              type: 'NEW_MESSAGE',
+              title: 'New message',
+              message: `${String(req.user!.dbUser?.name || 'A student')} sent you a message.`,
+              relatedEntityType: 'CONVERSATION',
+              relatedEntityId: id,
+            })),
+          });
+        }
+      } catch (notifErr: any) {
+        console.error('Failed to create message notifications asynchronously:', notifErr?.message || notifErr);
+      }
+    })();
 
     res.status(201).json({ message });
   } catch (error) {

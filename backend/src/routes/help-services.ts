@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
+import { transactionLimiter } from '../middleware/rate-limit';
 import { Prisma, prisma } from '../lib/prisma';
 
 const router = Router();
@@ -276,19 +277,19 @@ async function createHelpRequest(req: AuthenticatedRequest, res: Parameters<Para
   }
 }
 
-router.post('/:id/requests', requireAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/:id/requests', requireAuth, transactionLimiter, async (req: AuthenticatedRequest, res) => {
   const id = getParam(req.params.id);
   if (!id) return res.status(400).json({ error: 'Missing help service id' });
   await createHelpRequest(req, res, id);
 });
 
-router.post('/:id/claim', requireAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/:id/claim', requireAuth, transactionLimiter, async (req: AuthenticatedRequest, res) => {
   const id = getParam(req.params.id);
   if (!id) return res.status(400).json({ error: 'Missing help service id' });
   await createHelpRequest(req, res, id);
 });
 
-router.patch('/requests/:requestId', requireAuth, async (req: AuthenticatedRequest, res) => {
+router.patch('/requests/:requestId', requireAuth, transactionLimiter, async (req: AuthenticatedRequest, res) => {
   try {
     const requestId = getParam(req.params.requestId);
     const nextStatus = String(req.body?.status || '').toUpperCase();
@@ -387,7 +388,7 @@ router.patch('/requests/:requestId', requireAuth, async (req: AuthenticatedReque
   }
 });
 
-router.post('/requests/:requestId/review', requireAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/requests/:requestId/review', requireAuth, transactionLimiter, async (req: AuthenticatedRequest, res) => {
   try {
     const requestId = getParam(req.params.requestId);
     const rating = Number(req.body?.rating);

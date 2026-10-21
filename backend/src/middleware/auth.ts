@@ -45,14 +45,20 @@ export async function requireAuth(
     next();
   } catch (error) {
     console.error('Auth middleware error:', (error as Error).message);
-    if (process.env.NODE_ENV !== 'production') {
+    // Explicitly restrict unverified token fallback: NEVER allow in production or staging.
+    // In local development, require BOTH NODE_ENV === 'development' AND explicit ALLOW_DEV_UNVERIFIED_AUTH === 'true'.
+    const isExplicitDevMockAllowed =
+      process.env.NODE_ENV === 'development' &&
+      process.env.ALLOW_DEV_UNVERIFIED_AUTH === 'true';
+
+    if (isExplicitDevMockAllowed) {
       try {
         const parts = accessToken.split('.');
         if (parts.length === 3) {
           const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
-          const uid = payload.user_id || payload.sub;
+          const uid = payload.user_id || payload.sub || payload.uid;
           if (uid) {
-            console.warn(`[SECURITY WARNING] Non-production unverified token fallback used for uid: ${uid}`);
+            console.warn(`[SECURITY WARNING] Non-production unverified token fallback explicitly used for uid: ${uid}`);
             req.user = {
               id: uid,
               email: payload.email || undefined,

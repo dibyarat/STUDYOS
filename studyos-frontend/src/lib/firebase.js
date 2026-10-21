@@ -4,6 +4,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  confirmPasswordReset,
+  verifyPasswordResetCode,
   sendEmailVerification,
   updateProfile,
   signOut as firebaseSignOut,
@@ -94,6 +96,28 @@ export const authClient = {
         return { error: null };
       } catch (error) {
         return { error };
+      }
+    },
+    confirmPassword: async (oobCode, newPassword) => {
+      if (!firebaseAuth) {
+        return { error: new Error('Firebase Auth is not configured') };
+      }
+      try {
+        await confirmPasswordReset(firebaseAuth, oobCode, newPassword);
+        return { error: null };
+      } catch (error) {
+        return { error };
+      }
+    },
+    verifyResetCode: async (oobCode) => {
+      if (!firebaseAuth) {
+        return { email: null, error: new Error('Firebase Auth is not configured') };
+      }
+      try {
+        const email = await verifyPasswordResetCode(firebaseAuth, oobCode);
+        return { email, error: null };
+      } catch (error) {
+        return { email: null, error };
       }
     },
     resendVerificationEmail: async () => {

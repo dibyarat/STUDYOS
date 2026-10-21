@@ -105,6 +105,8 @@ export function AuthProvider({ children }) {
   const resetPassword = (email) => authClient.auth.resetPasswordForEmail(email)
   const resendVerification = () => authClient.auth.resendVerificationEmail()
   const signOut = () => authClient.auth.signOut()
+  const confirmPassword = (oobCode, newPassword) => authClient.auth.confirmPassword(oobCode, newPassword)
+  const verifyResetCode = (oobCode) => authClient.auth.verifyResetCode(oobCode)
 
   return (
     <AuthContext.Provider
@@ -117,6 +119,8 @@ export function AuthProvider({ children }) {
         signIn,
         signUp,
         resetPassword,
+        confirmPassword,
+        verifyResetCode,
         resendVerification,
         signOut,
         reloadProfile,

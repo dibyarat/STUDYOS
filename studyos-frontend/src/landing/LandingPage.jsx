@@ -27,9 +27,10 @@ import BrandBackdrop from '../components/BrandBackdrop.jsx'
 import './LandingPage.css'
 
 export default function LandingPage({ initialShowLogin = false }) {
-  const { signIn, signUp, resetPassword } = useAuth()
+  const { signIn, signUp, resetPassword, confirmPassword: confirmPasswordResetAction } = useAuth()
   const [showLoginModal, setShowLoginModal] = useState(initialShowLogin)
-  const [authMode, setAuthMode] = useState('signin') // 'signin' | 'signup' | 'forgot'
+  const [authMode, setAuthMode] = useState('signin') // 'signin' | 'signup' | 'forgot' | 'reset-confirm'
+  const [resetCode, setResetCode] = useState('')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -40,9 +41,31 @@ export default function LandingPage({ initialShowLogin = false }) {
   const [statusMessage, setStatusMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const mode = params.get('mode')
+      const oobCode = params.get('oobCode')
+      if (mode === 'resetPassword' && oobCode) {
+        setResetCode(oobCode)
+        setAuthMode('reset-confirm')
+        setShowLoginModal(true)
+        window.history.replaceState({}, document.title, window.location.pathname)
+      }
+    } catch {}
+  }, [])
   const mapAuthError = (err) => {
     const code = err?.code || ''
     const message = err?.message || ''
+    if (code === 'auth/expired-action-code') {
+      return 'The password reset link has expired. Please request a new link.'
+    }
+    if (code === 'auth/invalid-action-code') {
+      return 'The password reset link is invalid or has already been used. Please request a new link.'
+    }
+    if (code === 'auth/user-disabled') {
+      return 'This account has been disabled. Please contact support.'
+    }
     if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
       return 'Incorrect email or password. Please verify your credentials or reset your password.'
     }
@@ -100,6 +123,35 @@ export default function LandingPage({ initialShowLogin = false }) {
       return
     }
 
+    if (authMode === 'reset-confirm') {
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters long.')
+        return
+      }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match. Please re-enter them.')
+        return
+      }
+      setSubmitting(true)
+      try {
+        const { error: confirmErr } = await confirmPasswordResetAction(resetCode, password)
+        if (confirmErr) {
+          setError(mapAuthError(confirmErr))
+        } else {
+          setStatusMessage('Your password has been successfully reset! You can now sign in with your new password.')
+          setAuthMode('signin')
+          setPassword('')
+          setConfirmPassword('')
+          setResetCode('')
+        }
+      } catch (err) {
+        setError(mapAuthError(err))
+      } finally {
+        setSubmitting(false)
+      }
+      return
+    }
+
     if (authMode === 'forgot') {
       if (!email.trim()) {
         setError('Please enter your registered email address.')
@@ -108,10 +160,10 @@ export default function LandingPage({ initialShowLogin = false }) {
       setSubmitting(true)
       try {
         const { error: resetErr } = await resetPassword(email.trim())
-        if (resetErr) {
+        if (resetErr && resetErr.code !== 'auth/user-not-found') {
           setError(mapAuthError(resetErr))
         } else {
-          setStatusMessage(`Password reset link sent to ${email.trim()}! Please check your inbox.`)
+          setStatusMessage(`If an account exists for ${email.trim()}, a password reset link has been sent. Please check your inbox.`)
         }
       } catch (err) {
         setError(mapAuthError(err))
@@ -136,7 +188,7 @@ export default function LandingPage({ initialShowLogin = false }) {
   }
 
   const openLogin = (mode = 'signin') => {
-    const targetMode = (typeof mode === 'string' && (mode === 'signup' || mode === 'forgot')) ? mode : 'signin'
+    const targetMode = (typeof mode === 'string' && (mode === 'signup' || mode === 'forgot' || mode === 'reset-confirm')) ? mode : 'signin'
     setError('')
     setStatusMessage('')
     setAuthMode(targetMode)
@@ -150,6 +202,7 @@ export default function LandingPage({ initialShowLogin = false }) {
       setStatusMessage('')
       setPassword('')
       setConfirmPassword('')
+      setResetCode('')
     }
   }
 
@@ -444,7 +497,7 @@ export default function LandingPage({ initialShowLogin = false }) {
 
             <div className="landing-modal-header">
               <img src={studyosMark} alt="StudyOS Logo" className="landing-modal-logo" />
-              <h2>{authMode === 'signup' ? 'Create Your Account' : authMode === 'forgot' ? 'Reset Your Password' : 'Welcome to StudyOS'}</h2>
+              <h2>{authMode === 'signup' ? 'Create Your Account' : authMode === 'forgot' ? 'Reset Your Password' : authMode === 'reset-confirm' ? 'Set New Password' : 'Welcome to StudyOS'}</h2>
               <p>
                 {authMode === 'signup'
                   ? 'Join classmates, track study classes, and share resources'
@@ -454,7 +507,7 @@ export default function LandingPage({ initialShowLogin = false }) {
               </p>
             </div>
 
-            {authMode !== 'forgot' && (
+            {authMode !== 'forgot' && authMode !== 'reset-confirm' && (
               <div className="auth-mode-tabs" role="tablist">
                 <button
                   type="button"
@@ -484,111 +537,176 @@ export default function LandingPage({ initialShowLogin = false }) {
               </div>
             )}
 
-            <form onSubmit={handleAuthSubmit} className="landing-modal-form">
-              {authMode === 'signup' && (
-                <label>
-                  Full Name
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    autoComplete="name"
-                    placeholder="e.g. Alex Morgan"
-                    maxLength={100}
-                  />
-                </label>
-              )}
+            {authMode === 'forgot' && statusMessage ? (
+              <div style={{ marginTop: '16px' }}>
+                <div
+                  style={{
+                    padding: '18px',
+                    borderRadius: '16px',
+                    background: '#f0fdf4',
+                    border: '1px solid #bbf7d0',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                  role="status"
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <CheckCircle2 size={24} style={{ color: '#16a34a', flexShrink: 0 }} />
+                    <strong style={{ color: '#166534', fontSize: '15px' }}>Password Reset Link Sent!</strong>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '13.5px', color: '#15803d', lineHeight: '1.5' }}>
+                    {statusMessage}
+                  </p>
+                  <p style={{ margin: 0, fontSize: '12.5px', color: '#166534', opacity: 0.9, lineHeight: '1.4' }}>
+                    Click the link in the email to choose your new password. If you don't receive the email within 2-3 minutes, make sure to check your spam or junk folder.
+                  </p>
+                </div>
 
-              <label>
-                Email Address
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                  placeholder="you@college.edu"
-                />
-              </label>
+                <button
+                  type="button"
+                  className="landing-modal-submit"
+                  style={{ marginTop: '20px' }}
+                  onClick={() => {
+                    setAuthMode('signin');
+                    setError('');
+                    setStatusMessage('');
+                    setPassword('');
+                    setConfirmPassword('');
+                  }}
+                >
+                  Return to Sign In
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleAuthSubmit} className="landing-modal-form">
+                {authMode === 'signup' && (
+                  <label>
+                    Full Name
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      autoComplete="name"
+                      placeholder="e.g. Alex Morgan"
+                      maxLength={100}
+                    />
+                  </label>
+                )}
 
-              {authMode !== 'forgot' && (
-                <label>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>Password</span>
-                    {authMode === 'signin' && (
+                {authMode !== 'reset-confirm' && (
+                  <label>
+                    Email Address
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      autoComplete="email"
+                      placeholder="you@college.edu"
+                    />
+                  </label>
+                )}
+
+                {authMode !== 'forgot' && (
+                  <label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>{authMode === 'reset-confirm' ? 'New Password' : 'Password'}</span>
+                      {authMode === 'signin' && (
+                        <button
+                          type="button"
+                          className="auth-switch-link"
+                          style={{ fontSize: '12px' }}
+                          onClick={() => { setAuthMode('forgot'); setError(''); setStatusMessage('') }}
+                        >
+                          Forgot password?
+                        </button>
+                      )}
+                    </div>
+                    <div className="password-input-wrap">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        autoComplete={authMode === 'signin' ? 'current-password' : 'new-password'}
+                        placeholder={authMode === 'reset-confirm' ? 'Enter new password' : authMode === 'signup' ? 'Create a secure password' : 'Enter your password'}
+                      />
                       <button
                         type="button"
-                        className="auth-switch-link"
-                        style={{ fontSize: '12px' }}
-                        onClick={() => { setAuthMode('forgot'); setError(''); setStatusMessage('') }}
+                        className="password-toggle-btn"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
                       >
-                        Forgot password?
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
+                    </div>
+                    {(authMode === 'signup' || authMode === 'reset-confirm') && (
+                      <span className="auth-password-hints">Must be at least 6 characters</span>
                     )}
-                  </div>
-                  <div className="password-input-wrap">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
-                      placeholder={authMode === 'signup' ? 'Create a secure password' : 'Enter your password'}
-                    />
-                    <button
-                      type="button"
-                      className="password-toggle-btn"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                  {authMode === 'signup' && (
-                    <span className="auth-password-hints">Must be at least 6 characters</span>
-                  )}
-                </label>
-              )}
+                  </label>
+                )}
 
-              {authMode === 'signup' && (
-                <label>
-                  Confirm Password
-                  <div className="password-input-wrap">
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                      autoComplete="new-password"
-                      placeholder="Repeat your password"
-                    />
-                    <button
-                      type="button"
-                      className="password-toggle-btn"
-                      onClick={() => setShowConfirmPassword((prev) => !prev)}
-                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                </label>
-              )}
+                {(authMode === 'signup' || authMode === 'reset-confirm') && (
+                  <label>
+                    {authMode === 'reset-confirm' ? 'Confirm New Password' : 'Confirm Password'}
+                    <div className="password-input-wrap">
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        autoComplete="new-password"
+                        placeholder={authMode === 'reset-confirm' ? 'Re-enter new password' : 'Repeat your password'}
+                      />
+                      <button
+                        type="button"
+                        className="password-toggle-btn"
+                        onClick={() => setShowConfirmPassword((prev) => !prev)}
+                        aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </label>
+                )}
 
-              {error && <p className="landing-modal-error" role="alert">{error}</p>}
+                {error && <p className="landing-modal-error" role="alert">{error}</p>}
 
-              <button type="submit" className="landing-modal-submit" disabled={submitting}>
-                <LockKeyhole size={16} />
-                <span>
-                  {submitting
-                    ? authMode === 'signup' ? 'Creating account…' : authMode === 'forgot' ? 'Sending link…' : 'Signing in…'
-                    : authMode === 'signup' ? 'Create Account' : authMode === 'forgot' ? 'Send Password Reset Link' : 'Sign in to StudyOS'}
-                </span>
-              </button>
-            </form>
+                <button type="submit" className="landing-modal-submit" disabled={submitting}>
+                  <LockKeyhole size={16} />
+                  <span>
+                    {submitting
+                      ? authMode === 'signup'
+                        ? 'Creating account…'
+                        : authMode === 'forgot'
+                        ? 'Sending link…'
+                        : authMode === 'reset-confirm'
+                        ? 'Updating password…'
+                        : 'Signing in…'
+                      : authMode === 'signup'
+                      ? 'Create Account'
+                      : authMode === 'forgot'
+                      ? 'Send Password Reset Link'
+                      : authMode === 'reset-confirm'
+                      ? 'Update Password'
+                      : 'Sign in to StudyOS'}
+                  </span>
+                </button>
+              </form>
+            )}
 
             <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '13px' }}>
-              {authMode === 'forgot' ? (
+              {authMode === 'reset-confirm' ? (
+                <button
+                  type="button"
+                  className="auth-switch-link"
+                  onClick={() => { setAuthMode('signin'); setError(''); setStatusMessage(''); setResetCode('') }}
+                >
+                  ← Cancel and return to sign in
+                </button>
+              ) : authMode === 'forgot' ? (
                 <button
                   type="button"
                   className="auth-switch-link"
