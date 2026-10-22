@@ -301,7 +301,7 @@ export default function LandingPage({ initialShowLogin = false }) {
       {/* Hero Section */}
       <section className="landing-hero">
         <div className="landing-hero-badge">
-          <GraduationCap size={15} />
+          <img src={studyosMark} alt="StudyOS" style={{ width: 16, height: 16, objectFit: 'contain' }} />
           <span>The Academic Operating System</span>
         </div>
 
