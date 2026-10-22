@@ -68,6 +68,13 @@ export const androidBridge = {
     return bridge?.getAppVersion ? bridge.getAppVersion() : null;
   },
 
+  setPullToRefreshEnabled(enabled) {
+    const bridge = getBridge();
+    if (bridge?.setPullToRefreshEnabled) {
+      bridge.setPullToRefreshEnabled(enabled);
+    }
+  },
+
   onNativeSearch(callback) {
     window.__onNativeSearch = callback;
     return () => {
@@ -86,4 +93,3 @@ export const androidBridge = {
     };
   }
 };
-
