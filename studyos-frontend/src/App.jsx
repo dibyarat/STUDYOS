@@ -72,7 +72,7 @@ const navItems = [
 
 const normalizeResource = (resource) => ({
   ...resource,
-  creatorName: resource.creator?.name || 'Student',
+  creatorName: resource.creatorName || resource.creator?.name || resource.creator?.fullName || resource.creator?.profile?.fullName || (resource.creator?.email ? resource.creator.email.split('@')[0] : 'Community Member'),
   subjectLabel: resource.subject || 'General',
   tags: resource.tags?.map((tag) => (typeof tag === 'string' ? tag : tag.tag)).filter(Boolean) || [],
   averageRating: resource.averageRating ?? (resource.ratings?.length ? resource.ratings.reduce((total, item) => total + (item.rating || 0), 0) / resource.ratings.length : 0),
@@ -237,6 +237,7 @@ function App() {
   const [skills, setSkills] = useState([])
   const [helpRequests, setHelpRequests] = useState([])
   const [projects, setProjects] = useState([])
+  const [projectsLoading, setProjectsLoading] = useState(false)
   const [labs, setLabs] = useState([])
   const [showProjectModal, setShowProjectModal] = useState(false)
   const [editingProject, setEditingProject] = useState(null)
@@ -427,6 +428,7 @@ function App() {
         console.error(`Failed to load ${label}:`, error)
         errors.push(label)
       })
+    setProjectsLoading(true)
     Promise.all([
       loadProjectsSection('projects', '/projects', (data) => setProjects((data.projects || []).map(normalizeProject))),
       loadProjectsSection('lab records', '/projects/labs', (data) => setLabs(data.labs || [])),
@@ -437,6 +439,8 @@ function App() {
         projectsDataUser.current = null
         setDataLoadError(`Could not load: ${errors.join(', ')}.`)
       } else setDataLoadError('')
+    }).finally(() => {
+      if (active) setProjectsLoading(false)
     })
     return () => {
       active = false
@@ -447,12 +451,16 @@ function App() {
 
   useEffect(() => {
     const query = search.trim()
-    if (!session?.user?.id || !session?.access_token || !query) return undefined
+    if (!session?.user?.id || !session?.access_token || !query) {
+      setSearchLoading(false)
+      setSearchResults(null)
+      return undefined
+    }
 
+    setSearchLoading(true)
     let active = true
     const controller = new AbortController()
     const timer = setTimeout(async () => {
-      setSearchLoading(true)
       setSearchError('')
       try {
         const data = await apiRequest(`/search?q=${encodeURIComponent(query)}&page=1&limit=6`, { token: session.access_token, signal: controller.signal })
@@ -963,9 +971,12 @@ function App() {
         token: session?.access_token,
       })
       setResources((current) => current.map((item) => item.id === data.resource.id ? normalizeResource(data.resource) : item))
+      setActionNotice(`"${resource.title}" was unpublished and is now private.`)
     } catch (error) {
       console.error('Failed to unpublish Vault resource:', error)
-      window.alert(error.message || 'Unable to unpublish this Vault resource.')
+      const errorMsg = error.message || 'Unable to unpublish this Vault resource.'
+      setActionNotice(`Could not unpublish "${resource.title}". It remains public: ${errorMsg}`)
+      window.alert(`Could not unpublish "${resource.title}". It remains public: ${errorMsg}`)
     }
   }
 
@@ -1959,6 +1970,7 @@ function App() {
             <ProjectsPage
               projects={projects}
               labs={labs}
+              loading={projectsLoading}
               currentUserId={user?.id}
               onCreateProject={() => { setEditingProject(null); setShowProjectModal(true) }}
               onEditProject={(p) => { setEditingProject(p); setShowProjectModal(true) }}
@@ -2212,7 +2224,7 @@ function SearchResults({ id, results, loading, error, query, onOpenGroup }) {
 
   return (
     <div id={id} className="search-results-panel" role="listbox" aria-label="Search results">
-      {loading ? (
+      {loading || results === null ? (
         <p className="search-results-state" role="status">Searching StudyOS...</p>
       ) : error ? (
         <p className="search-results-state is-error" role="alert">{error}</p>
@@ -2465,7 +2477,7 @@ function Dashboard({ classes, resources, teamPostCount, helpServiceCount, onAddR
           resources.length ? <ResourceList resources={resources.slice(0, 5)} onNavigate={() => onNavigate('vault')} /> : <div className="dashboard-empty"><strong>No recent resources</strong><span>Upload notes or browse what your classmates have shared.</span><button className="button ghost" onClick={() => onNavigate('vault')}>Explore Vault</button></div>
         )}
       </section>
-      <section className="section-card activity-card"><SectionHeader title="Your Activity" action="View resources" onClick={() => onNavigate('vault')} /><Activity resources={resources.slice(0, 3)} /></section>
+      <section className="section-card activity-card"><SectionHeader title="Community Activity" action="View all" onClick={() => onNavigate('vault')} /><Activity resources={resources.slice(0, 4)} /></section>
     </div>
   </>
 }
@@ -4156,7 +4168,7 @@ function ResourceDetailModal({ resource, currentUserId, onOpenFile, onToggleSave
 
   const isOwner = resource.creatorId === currentUserId || resource.creator?.id === currentUserId
   const isPrivate = resource.visibility && resource.visibility !== 'PUBLIC'
-  const authorName = resource.creatorName || resource.creator?.name || 'Student'
+  const authorName = resource.creatorName || resource.creator?.name || resource.creator?.fullName || resource.creator?.profile?.fullName || (resource.creator?.email ? resource.creator.email.split('@')[0] : 'Community Member')
   const authorId = resource.creator?.id || resource.creatorId
 
   return (

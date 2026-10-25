@@ -571,6 +571,10 @@ router.post('/', requireAuth, uploadLimiter, handleResourceUpload, async (req: A
       subject: subject || null,
       topic: topic || null,
       visibility: visibility || 'PRIVATE',
+      price: null,
+      paymentMethod: null,
+      upiId: null,
+      paymentInst: null,
       creator: { connect: { id: req.user.id } },
     };
 
@@ -616,7 +620,7 @@ router.post('/', requireAuth, uploadLimiter, handleResourceUpload, async (req: A
   }
 });
 
-router.put('/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
+const handleResourceUpdate = async (req: AuthenticatedRequest, res: any) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     if (!id) {
@@ -636,13 +640,26 @@ router.put('/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
     }
 
     const { title, description, type, subject, topic, visibility, tags, price, paymentMethod, upiId, paymentInstructions } = req.body || {};
-    const nextPrice = price === undefined ? existing.price : price === null || price === '' ? null : Number(price);
-    const nextPaymentMethod = paymentMethod === undefined ? existing.paymentMethod : String(paymentMethod || '').trim().toUpperCase() || null;
-    if (nextPrice !== null && (!Number.isFinite(nextPrice) || nextPrice < 0)) {
-      return res.status(400).json({ error: 'Price must be zero or more' });
+    let nextPrice = existing.price ?? null;
+    if (price !== undefined) {
+      if (price === null || price === '') {
+        nextPrice = null;
+      } else {
+        const parsed = Number(price);
+        if (!Number.isFinite(parsed) || parsed < 0) {
+          return res.status(400).json({ error: 'Price must be zero or more' });
+        }
+        nextPrice = parsed;
+      }
     }
-    if (nextPaymentMethod !== null && !['UPI', 'CASH'].includes(nextPaymentMethod)) {
-      return res.status(400).json({ error: 'Payment method must be UPI or CASH' });
+
+    let nextPaymentMethod = existing.paymentMethod ?? null;
+    if (paymentMethod !== undefined) {
+      const normalized = String(paymentMethod || '').trim().toUpperCase() || null;
+      if (normalized !== null && !['UPI', 'CASH'].includes(normalized)) {
+        return res.status(400).json({ error: 'Payment method must be UPI or CASH' });
+      }
+      nextPaymentMethod = normalized;
     }
     const resource = await prisma.resource.update({
       where: { id },
@@ -676,7 +693,10 @@ router.put('/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
     console.error('Failed to update resource:', error);
     res.status(500).json({ error: 'Server error' });
   }
-});
+};
+
+router.put('/:id', requireAuth, handleResourceUpdate);
+router.patch('/:id', requireAuth, handleResourceUpdate);
 
 router.put('/:id/files/:fileId', requireAuth, uploadLimiter, handleResourceUpload, async (req: AuthenticatedRequest, res) => {
   let uploadedPath: string | null = null;

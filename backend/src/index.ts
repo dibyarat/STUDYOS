@@ -34,31 +34,38 @@ const app = express();
 app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT || 3001);
 
-const allowedOrigins = [
+const exactAllowedOrigins = new Set([
+  'https://studyos-nu-three.vercel.app',
+  'https://studyos.me',
+  'https://www.studyos.me',
+  'https://campassist.me',
+  'https://www.campassist.me',
   'http://localhost:5173',
   'http://localhost:3000',
   'http://localhost:5174',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:3000',
-  process.env.FRONTEND_URL,
+  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
   ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map((s) => s.trim()) : []),
-].filter(Boolean) as string[];
+]);
 
 const isOriginAllowed = (origin?: string): boolean => {
   if (!origin) return true;
-  if (allowedOrigins.includes(origin)) return true;
-  if (/^https:\/\/[a-z0-9-]+(\.vercel\.app|\.campassist\.me)$/i.test(origin)) return true;
-  if (process.env.NODE_ENV !== 'production') return true;
+  const trimmed = origin.trim().replace(/\/$/, '');
+  if (exactAllowedOrigins.has(trimmed)) return true;
+  if (/^https:\/\/studyos(-[a-z0-9]+)?\.vercel\.app$/i.test(trimmed)) return true;
   return false;
 };
+
+app.disable('x-powered-by');
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (isOriginAllowed(origin)) {
+      if (!origin || isOriginAllowed(origin)) {
         callback(null, true);
       } else {
-        callback(new Error('Not allowed by CORS'));
+        callback(null, false);
       }
     },
     credentials: true,
@@ -74,6 +81,7 @@ app.use((_req, res, next) => {
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.removeHeader('X-Powered-By');
   next();
 });
 
@@ -261,15 +269,18 @@ app.post('/api/v1/studyos/sync-user', sensitiveLimiter, requireAuth, async (req,
     }
 
     const { name, avatarUrl } = req.body || {};
+    const safeName = (name && typeof name === 'string' && name.trim()) || undefined;
     const user = await prisma.user.upsert({
       where: { id: authUser.id },
       update: {
         email: authUser.email || undefined,
+        name: safeName || undefined,
+        avatarUrl: avatarUrl || undefined,
       },
       create: {
         id: authUser.id,
         email: authUser.email || `${authUser.id}@studyos.local`,
-        name: name || authUser.email?.split('@')[0] || 'StudyOS User',
+        name: safeName || authUser.email?.split('@')[0] || 'StudyOS User',
         avatarUrl: avatarUrl || '',
       },
     });
@@ -733,9 +744,13 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   res.status(500).json({ error: 'Internal server error' });
 });
 
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-});
+
+let server: any;
+if (process.env.NODE_ENV !== 'test') {
+  server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
 
 function shutdown(signal: NodeJS.Signals) {
   console.info(`Received ${signal}; closing HTTP server`);
@@ -761,3 +776,6 @@ process.on('uncaughtException', (error) => {
 
 process.once('SIGINT', () => shutdown('SIGINT'));
 process.once('SIGTERM', () => shutdown('SIGTERM'));
+
+export { app };
+export default app;

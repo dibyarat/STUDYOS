@@ -37,6 +37,8 @@ export default function LandingPage({ initialShowLogin = false }) {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const modalRef = useRef(null)
+  const lastActiveElementRef = useRef(null)
   const [error, setError] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -209,18 +211,51 @@ export default function LandingPage({ initialShowLogin = false }) {
   useEffect(() => {
     if (!showLoginModal) return
 
+    lastActiveElementRef.current = document.activeElement
     const originalOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+
+    // Move initial focus into modal
+    const focusTimer = setTimeout(() => {
+      const modal = modalRef.current
+      if (modal) {
+        const focusable = modal.querySelectorAll('input:not(:disabled), button:not(.landing-modal-close):not(:disabled), select:not(:disabled), textarea:not(:disabled)')
+        if (focusable.length) {
+          focusable[0].focus()
+        } else {
+          modal.focus()
+        }
+      }
+    }, 50)
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && !submitting) {
         closeLogin()
+      } else if (e.key === 'Tab') {
+        const modal = modalRef.current
+        if (!modal) return
+        const focusable = Array.from(modal.querySelectorAll('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])'))
+        if (!focusable.length) return
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => {
+      clearTimeout(focusTimer)
       document.body.style.overflow = originalOverflow
       window.removeEventListener('keydown', handleKeyDown)
+      if (lastActiveElementRef.current && typeof lastActiveElementRef.current.focus === 'function') {
+        lastActiveElementRef.current.focus()
+      }
     }
   }, [showLoginModal, submitting])
 
@@ -490,14 +525,14 @@ export default function LandingPage({ initialShowLogin = false }) {
       {/* Authentication Modal rendered into document.body to guarantee viewport positioning */}
       {showLoginModal && typeof document !== 'undefined' && createPortal(
         <div className="landing-modal-backdrop" onClick={closeLogin}>
-          <div className="landing-modal-card" onClick={(e) => e.stopPropagation()}>
+          <div ref={modalRef} className="landing-modal-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="landing-modal-title" tabIndex={-1}>
             <button type="button" className="landing-modal-close" onClick={closeLogin} aria-label="Close modal">
               <X size={18} />
             </button>
 
             <div className="landing-modal-header">
               <img src={studyosMark} alt="StudyOS Logo" className="landing-modal-logo" />
-              <h2>{authMode === 'signup' ? 'Create Your Account' : authMode === 'forgot' ? 'Reset Your Password' : authMode === 'reset-confirm' ? 'Set New Password' : 'Welcome to StudyOS'}</h2>
+              <h2 id="landing-modal-title">{authMode === 'signup' ? 'Create Your Account' : authMode === 'forgot' ? 'Reset Your Password' : authMode === 'reset-confirm' ? 'Set New Password' : 'Welcome to StudyOS'}</h2>
               <p>
                 {authMode === 'signup'
                   ? 'Join classmates, track study classes, and share resources'
@@ -581,9 +616,12 @@ export default function LandingPage({ initialShowLogin = false }) {
             ) : (
               <form onSubmit={handleAuthSubmit} className="landing-modal-form">
                 {authMode === 'signup' && (
-                  <label>
-                    Full Name
+                  <div className="landing-form-group">
+                    <label htmlFor="auth-name" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '11px', color: 'var(--color-muted)' }}>
+                      Full Name
+                    </label>
                     <input
+                      id="auth-name"
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
@@ -592,13 +630,16 @@ export default function LandingPage({ initialShowLogin = false }) {
                       placeholder="e.g. Alex Morgan"
                       maxLength={100}
                     />
-                  </label>
+                  </div>
                 )}
 
                 {authMode !== 'reset-confirm' && (
-                  <label>
-                    Email Address
+                  <div className="landing-form-group">
+                    <label htmlFor="auth-email" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '11px', color: 'var(--color-muted)' }}>
+                      Email Address
+                    </label>
                     <input
+                      id="auth-email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -606,13 +647,15 @@ export default function LandingPage({ initialShowLogin = false }) {
                       autoComplete="email"
                       placeholder="you@college.edu"
                     />
-                  </label>
+                  </div>
                 )}
 
                 {authMode !== 'forgot' && (
-                  <label>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>{authMode === 'reset-confirm' ? 'New Password' : 'Password'}</span>
+                  <div className="landing-form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <label htmlFor="auth-password" style={{ margin: 0, fontWeight: 700, fontSize: '11px', color: 'var(--color-muted)' }}>
+                        {authMode === 'reset-confirm' ? 'New Password' : 'Password'}
+                      </label>
                       {authMode === 'signin' && (
                         <button
                           type="button"
@@ -626,6 +669,7 @@ export default function LandingPage({ initialShowLogin = false }) {
                     </div>
                     <div className="password-input-wrap">
                       <input
+                        id="auth-password"
                         type={showPassword ? 'text' : 'password'}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
@@ -645,14 +689,17 @@ export default function LandingPage({ initialShowLogin = false }) {
                     {(authMode === 'signup' || authMode === 'reset-confirm') && (
                       <span className="auth-password-hints">Must be at least 6 characters</span>
                     )}
-                  </label>
+                  </div>
                 )}
 
                 {(authMode === 'signup' || authMode === 'reset-confirm') && (
-                  <label>
-                    {authMode === 'reset-confirm' ? 'Confirm New Password' : 'Confirm Password'}
+                  <div className="landing-form-group">
+                    <label htmlFor="auth-confirm-password" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '11px', color: 'var(--color-muted)' }}>
+                      {authMode === 'reset-confirm' ? 'Confirm New Password' : 'Confirm Password'}
+                    </label>
                     <div className="password-input-wrap">
                       <input
+                        id="auth-confirm-password"
                         type={showConfirmPassword ? 'text' : 'password'}
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
@@ -669,7 +716,7 @@ export default function LandingPage({ initialShowLogin = false }) {
                         {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>
-                  </label>
+                  </div>
                 )}
 
                 {error && <p className="landing-modal-error" role="alert">{error}</p>}
