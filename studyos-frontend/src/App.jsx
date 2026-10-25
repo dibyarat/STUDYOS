@@ -626,11 +626,16 @@ function App() {
       })
       if (!result?.url && !result?.previewUrl) throw new Error('The file service did not provide a download link.')
       const targetFileName = fileName || result.fileName || 'study-resource'
+      const rawPreview = result.previewUrl || result.url;
+      const resolvedPreview = rawPreview ? resolveEndpoint(rawPreview) : '';
+      const previewWithAuth = resolvedPreview && session?.access_token && resolvedPreview.includes('/files/') && !resolvedPreview.includes('token=')
+        ? `${resolvedPreview}?token=${encodeURIComponent(session.access_token)}`
+        : (resolvedPreview || rawPreview);
       const filePayload = {
         title: targetFileName,
         fileName: targetFileName,
-        url: result.previewUrl || result.url,
-        previewUrl: result.previewUrl || result.url,
+        url: previewWithAuth,
+        previewUrl: previewWithAuth,
         downloadUrl: result.downloadUrl || result.url,
         directDownloadUrl: result.directDownloadUrl ? resolveEndpoint(result.directDownloadUrl) : null,
         mimeType: result.mimeType || '',

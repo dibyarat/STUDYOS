@@ -1,17 +1,18 @@
 import { Response } from 'express';
-import { buildCleanPreviewUrl } from './cloudinary';
+import { buildCleanPreviewUrl, buildAttachmentUrl } from './cloudinary';
 
 /**
- * Streams an authorized file download to the response with RFC 5987 / RFC 6266
- * Content-Disposition headers. This guarantees the user's browser saves the file
+ * Streams an authorized file download or inline preview to the response with RFC 5987 / RFC 6266
+ * Content-Disposition headers. This guarantees the user's browser saves or previews the file
  * with its authoritative original name, regardless of spaces, Unicode, punctuation,
- * and without exposing raw storage provider transformations.
+ * and without exposing raw storage provider transformations or hitting ACL blocks.
  */
 export async function streamAuthorizedDownload(
   res: Response,
   fileUrl: string,
   fileName: string,
-  mimeType?: string
+  mimeType?: string,
+  disposition: 'attachment' | 'inline' = 'attachment'
 ): Promise<void> {
   const cleanUrl = buildCleanPreviewUrl(fileUrl);
   if (!cleanUrl) {
@@ -23,7 +24,21 @@ export async function streamAuthorizedDownload(
   const utf8Filename = encodeURIComponent(fileName || 'download').replace(/['()]/g, escape).replace(/\*/g, '%2A');
 
   try {
-    const upstreamRes = await fetch(cleanUrl);
+    let upstreamRes = await fetch(cleanUrl);
+
+    // If Cloudinary returns 401 (deny/ACL) or 404, retry using authenticated download url
+    if (!upstreamRes.ok && cleanUrl.includes('res.cloudinary.com')) {
+      const signedUrl = buildAttachmentUrl(fileUrl, fileName);
+      if (signedUrl && signedUrl !== cleanUrl) {
+        try {
+          const retryRes = await fetch(signedUrl);
+          if (retryRes.ok) {
+            upstreamRes = retryRes;
+          }
+        } catch {}
+      }
+    }
+
     if (!upstreamRes.ok) {
       console.error(`Failed to fetch file from storage: ${upstreamRes.status} ${upstreamRes.statusText}`);
       res.status(upstreamRes.status).json({ error: 'Storage provider error retrieving file' });
@@ -34,7 +49,7 @@ export async function streamAuthorizedDownload(
     const contentLength = upstreamRes.headers.get('content-length');
 
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `attachment; filename="${safeAscii}"; filename*=UTF-8''${utf8Filename}`);
+    res.setHeader('Content-Disposition', `${disposition}; filename="${safeAscii}"; filename*=UTF-8''${utf8Filename}`);
     if (contentLength) {
       res.setHeader('Content-Length', contentLength);
     }
@@ -61,4 +76,3 @@ export async function streamAuthorizedDownload(
     }
   }
 }
-

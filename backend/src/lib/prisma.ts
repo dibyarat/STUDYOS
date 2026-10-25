@@ -1013,8 +1013,20 @@ export class FirestoreCollection<T extends Record<string, any> = Record<string, 
     }
 
     if (include.topics) {
-      const topics = await prisma.virtualStudyTopic.findMany({ where: { classId: item.id }, orderBy: { order: 'asc' } });
+      const topics = await prisma.virtualStudyTopic.findMany({
+        where: { classId: item.id },
+        orderBy: { order: 'asc' },
+        include: include.topics.include,
+      });
       resolved.topics = topics;
+    }
+
+    if (include.resources) {
+      const resources = await prisma.virtualStudyResource.findMany({
+        where: { topicId: item.id },
+        include: include.resources.include,
+      });
+      resolved.resources = resources;
     }
 
     if (include.resource) {

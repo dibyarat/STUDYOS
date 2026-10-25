@@ -408,6 +408,31 @@ router.get('/:id/files/:fileId/access', requireAuth, async (req: AuthenticatedRe
   }
 });
 
+router.get('/:id/files/:fileId/stream', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const projectId = getParam(req.params.id);
+    const fileId = getParam(req.params.fileId);
+    const userId = req.user!.id;
+    if (!projectId || !fileId) return res.status(400).json({ error: 'Missing parameters' });
+
+    const project = await prisma.project.findFirst({ where: { id: projectId } });
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    if (project.visibility !== 'PUBLIC' && project.creatorId !== userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const file = await prisma.projectFile.findFirst({ where: { id: fileId, projectId } });
+    if (!file) return res.status(404).json({ error: 'File not found' });
+
+    await streamAuthorizedDownload(res, file.fileUrl, file.fileName, file.mimeType, 'inline');
+  } catch (error) {
+    console.error('Failed to stream project file preview:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to stream project file' });
+    }
+  }
+});
+
 router.get('/:id/files/:fileId/download', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const projectId = getParam(req.params.id);

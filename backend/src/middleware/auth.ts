@@ -16,9 +16,13 @@ export async function requireAuth(
   next: NextFunction,
 ): Promise<void> {
   const authHeader = req.headers.authorization;
-  const accessToken = authHeader?.startsWith('Bearer ')
+  let accessToken = authHeader?.startsWith('Bearer ')
     ? authHeader.replace('Bearer ', '').trim()
     : null;
+
+  if ((!accessToken || accessToken === 'undefined' || accessToken === 'null') && req.query?.token && typeof req.query.token === 'string') {
+    accessToken = req.query.token.trim();
+  }
 
   if (!accessToken || accessToken === 'undefined' || accessToken === 'null') {
     res.status(401).json({ error: 'Authentication required' });

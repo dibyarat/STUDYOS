@@ -129,11 +129,13 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
 
     const visibleClasses = classes.map((studyClass) => ({
       ...studyClass,
-      topics: studyClass.topics.map((topic) => ({
+      topics: (studyClass.topics || []).map((topic) => ({
         ...topic,
-        resources: topic.resources.filter(({ resource }) =>
-          !resource || resource.visibility === 'PUBLIC' || resource.creatorId === req.user!.id,
-        ),
+        resources: Array.isArray(topic.resources)
+          ? topic.resources.filter(({ resource }) =>
+              !resource || resource.visibility === 'PUBLIC' || resource.creatorId === req.user!.id,
+            )
+          : [],
       })),
     }));
 
@@ -155,11 +157,13 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
     });
     if (!studyClass) return res.status(404).json({ error: 'Class not found' });
 
-    studyClass.topics = studyClass.topics.map((topic) => ({
+    studyClass.topics = (studyClass.topics || []).map((topic) => ({
       ...topic,
-      resources: topic.resources.filter(({ resource }) =>
-        !resource || resource.visibility === 'PUBLIC' || resource.creatorId === req.user!.id,
-      ),
+      resources: Array.isArray(topic.resources)
+        ? topic.resources.filter(({ resource }) =>
+            !resource || resource.visibility === 'PUBLIC' || resource.creatorId === req.user!.id,
+          )
+        : [],
     }));
     res.json({ class: studyClass });
   } catch (error) {

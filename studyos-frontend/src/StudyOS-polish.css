@@ -1190,3 +1190,54 @@ select option {
 
 
 
+
+/* Global modal centering & vault row protections */
+.modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  z-index: 999999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+  margin: 0 !important;
+  background: rgba(15, 23, 42, 0.65) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  box-sizing: border-box !important;
+}
+
+.modal {
+  margin: auto !important;
+  position: relative !important;
+  max-width: 580px !important;
+  width: min(580px, calc(100vw - 32px)) !important;
+  max-height: calc(100vh - 40px) !important;
+  max-height: calc(100dvh - 40px) !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+}
+
+.file-viewer-modal-content {
+  margin: auto !important;
+  position: relative !important;
+  max-width: 950px !important;
+  width: min(94vw, 950px) !important;
+  max-height: 92vh !important;
+  max-height: 92dvh !important;
+  box-sizing: border-box !important;
+}
+
+.vault-row .post-actions .button {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
