@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -437,7 +438,7 @@ export default function TimetablePage({
       />
 
       {/* Add / Edit Class Modal */}
-      {showAddModal && (
+      {showAddModal && typeof document !== 'undefined' && createPortal(
         <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setShowAddModal(false)}>
           <div className="modal" style={{ maxWidth: '540px' }}>
             <div className="modal-header">
@@ -541,7 +542,8 @@ export default function TimetablePage({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );
