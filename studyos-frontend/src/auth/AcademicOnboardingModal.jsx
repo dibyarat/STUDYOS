@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { GraduationCap, Sparkles, X, CheckCircle2 } from 'lucide-react';
 import { apiRequest } from '../lib/api.js';
 
@@ -144,7 +145,7 @@ export default function AcademicOnboardingModal({
     }
   };
 
-  return (
+  const modalElement = (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && handleDismiss()}>
       <div className="modal" style={{ maxWidth: '640px' }}>
         <div className="modal-header">
@@ -343,5 +344,7 @@ export default function AcademicOnboardingModal({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalElement, document.body) : modalElement;
 }
 

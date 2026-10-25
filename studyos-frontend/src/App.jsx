@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAuth } from './auth/useAuth.js'
 import { apiRequest, apiUpload, resolveEndpoint } from './lib/api.js'
 import { discussionApi } from './lib/discussions.js'
@@ -4064,7 +4065,8 @@ function Modal({ title, onClose, children }) {
       if (previousFocus instanceof HTMLElement) previousFocus.focus()
     }
   }, [])
-  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><div ref={modalRef} className="modal" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}><div className="modal-header"><h2 id={titleId}>{title}</h2><button type="button" className="close-button" onClick={onClose} aria-label="Close"><X size={18} /></button></div>{children}</div></div>
+  const modalNode = <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><div ref={modalRef} className="modal" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}><div className="modal-header"><h2 id={titleId}>{title}</h2><button type="button" className="close-button" onClick={onClose} aria-label="Close"><X size={18} /></button></div>{children}</div></div>
+  return typeof document !== "undefined" ? createPortal(modalNode, document.body) : modalNode
 }
 
 function ReportResourceForm({ resource, saving, error, onSubmit, onCancel }) {

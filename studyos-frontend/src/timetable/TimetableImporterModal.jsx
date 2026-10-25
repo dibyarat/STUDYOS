@@ -356,7 +356,7 @@ export default function TimetableImporterModal({
     }
   };
 
-  return (
+  const modalElement = (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: '820px' }}>
         <div className="modal-header">
@@ -584,5 +584,7 @@ export default function TimetableImporterModal({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalElement, document.body) : modalElement;
 }
 

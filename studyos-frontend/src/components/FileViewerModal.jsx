@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Download,
@@ -80,7 +81,7 @@ export default function FileViewerModal({ file, onClose, onDownload }) {
     };
   }, [fileUrl, fileCategory]);
 
-  return (
+  const modalElement = (
     <div className="modal-backdrop" onClick={onClose}>
       <div
         className="modal-content file-viewer-modal-content"
@@ -257,5 +258,7 @@ export default function FileViewerModal({ file, onClose, onDownload }) {
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalElement, document.body) : modalElement;
 }
 
