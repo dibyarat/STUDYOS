@@ -6,3 +6,4 @@ Allow: /studyos-mark.png
 
 User-agent: *
 Allow: /
+

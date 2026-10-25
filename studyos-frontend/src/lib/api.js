@@ -14,7 +14,15 @@ export function getApiBaseUrl() {
 export const API_URL = getApiBaseUrl();
 
 export function resolveEndpoint(path) {
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  if (!path) return API_URL;
+  if (/^https?:\/\//i.test(path)) return path;
+
+  let cleanPath = path.startsWith('/') ? path : `/${path}`;
+  if (cleanPath.startsWith('/api/v1/studyos/')) {
+    cleanPath = cleanPath.replace('/api/v1/studyos', '');
+  } else if (cleanPath === '/api/v1/studyos') {
+    cleanPath = '';
+  }
   return `${API_URL}${cleanPath}`;
 }
 

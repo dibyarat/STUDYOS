@@ -2667,7 +2667,7 @@ function Classes({ classes, currentUserId, onAdd, onEdit, onDelete, onPublish, e
   return <section className="classes-page">
     <div className="page-heading"><div><p className="eyebrow">MY LEARNING SPACE</p><h1>Virtual Study Classes</h1><p>Build focused learning spaces for the subjects you care about.</p></div><button className="button primary" onClick={onAdd} disabled={classes.length >= 10}><Plus size={16} /> Create class <span>{classes.length}/10</span></button></div>
     <div className="full-class-grid">
-      {classes.map((item) => <div className="class-workspace" key={item.id}>
+      {classes.map((item) => <div className={`class-workspace ${expandedClassId === item.id ? 'is-expanded' : ''}`} key={item.id}>
         <ClassCard item={item} large />
         <div className="class-workspace-actions"><button className="button ghost" onClick={() => onToggleExpanded(item.id)}>{expandedClassId === item.id ? 'Hide topics' : `Topics (${item.topicCount})`}</button>{item.creatorId === currentUserId && <><button className="button ghost" onClick={() => onPublish(item)}>Publish selected material</button><button className="icon-button" aria-label={`Edit ${item.name}`} title="Edit class" onClick={() => onEdit(item)}><Pencil size={15} /></button><button className="icon-danger" aria-label={`Delete ${item.name}`} title="Delete class" onClick={() => onDelete(item)}><Trash2 size={15} /></button></>}</div>
         {expandedClassId === item.id && <div className="class-topic-section">

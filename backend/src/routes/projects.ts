@@ -396,7 +396,7 @@ router.get('/:id/files/:fileId/access', requireAuth, async (req: AuthenticatedRe
       url: previewUrl,
       previewUrl,
       downloadUrl,
-      directDownloadUrl: `/api/v1/studyos/projects/${projectId}/files/${fileId}/download`,
+      directDownloadUrl: `/projects/${projectId}/files/${fileId}/download`,
       fileName: file.fileName,
       mimeType: file.mimeType || 'application/octet-stream',
       fileSize: file.fileSize,
@@ -584,7 +584,7 @@ router.get('/labs/:id/file', requireAuth, async (req: AuthenticatedRequest, res)
       url: previewUrl,
       previewUrl,
       downloadUrl,
-      directDownloadUrl: `/api/v1/studyos/projects/labs/${labId}/download`,
+      directDownloadUrl: `/projects/labs/${labId}/download`,
       fileName: lab.fileName,
       expiresIn: 300,
     });

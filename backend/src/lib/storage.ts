@@ -73,9 +73,14 @@ export async function uploadResourceFile(
   const mimeType = validateResourceFile(file);
 
   const cleanBase = sanitizeFileName(file.originalname);
+  const dotIndex = cleanBase.lastIndexOf('.');
+  const baseWithoutExt = dotIndex > 0 ? cleanBase.substring(0, dotIndex) : cleanBase;
+  const fileExt = dotIndex > 0 ? cleanBase.substring(dotIndex + 1).toLowerCase() : undefined;
+
   const result = await uploadToCloudinary(file.buffer, {
     folder: `studyos/${userId}/${resourceId}`,
-    public_id: `${Date.now()}_${cleanBase}`,
+    public_id: `${Date.now()}_${baseWithoutExt}`,
+    format: fileExt,
     resource_type: 'auto',
   });
 

@@ -32,7 +32,7 @@ body {
 }
 
 .app-shell > main,
-.app-shell > div:not(.fixed-backdrop) {
+.app-shell > div:not(.fixed-backdrop):not(.modal-backdrop):not(.action-toast) {
   position: relative;
   z-index: 10;
 }
