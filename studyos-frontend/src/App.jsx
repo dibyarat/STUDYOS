@@ -1959,10 +1959,10 @@ function App() {
           {notificationsError && <div className={`data-load-warning ${sessionExpired ? 'session-expired' : ''}`} role="alert">{notificationsError}{sessionExpired ? <button className="button secondary" onClick={signOut}>Sign out</button> : <button className="button ghost" disabled={retryingSection === 'notifications'} onClick={() => { setRetryingSection('notifications'); refreshNotifications().finally(() => setRetryingSection('')) }}>{retryingSection === 'notifications' ? 'Retrying…' : 'Retry notifications'}</button>}</div>}
           {dataLoadError && ['teams', 'skills', 'projects'].includes(activePage) && <div className="data-load-warning" role="alert">{dataLoadError} <button className="button ghost" disabled={retryingSection === activePage} onClick={() => retryLoad(activePage)}>{retryingSection === activePage ? 'Retrying…' : 'Retry'}</button></div>}
           {activePage === 'dashboard' && <Dashboard classes={classes} resources={filteredResources} teamPostCount={teamPostCount} helpServiceCount={helpServiceCount} onAddResource={() => { setResourceSaveError(''); setShowResourceModal(true) }} onAddClass={() => setShowClassModal(true)} onNavigate={go} userName={userName} currentUserId={user?.id} token={session?.access_token} resourcesError={resourcesError} classesError={classesError} summaryError={summaryError} onRetry={retryLoad} retryingSection={retryingSection} />}
-          {activePage === 'vault' && <Vault resources={filteredResources} search={vaultSearch} onSearch={(value) => { setVaultSearch(value); }} onAdd={() => { setResourceSaveError(''); setShowResourceModal(true) }} onDelete={deleteResource} onEdit={(item) => { setEditingResource(item); setResourceEditPaid(item.price != null) }} onUnpublish={unpublishResource} onToggleSave={toggleResourceSave} onReport={(id) => { setReportDialog(resources.find((item) => item.id === id) || null); setReportError('') }} onOpenFile={openResourceFile} onRate={(item) => { setRateError(''); setRateDialog(item) }} onViewDetail={(item) => setDetailResource(item)} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }} onNotice={setActionNotice} currentUserId={user?.id} token={session?.access_token} />}
-          {activePage === 'classes' && <Classes classes={classes} currentUserId={user?.id} onAdd={() => { setEditingClass(null); setShowClassModal(true) }} onEdit={(item) => { setEditingClass(item); setShowClassModal(true) }} onDelete={deleteClass} onPublish={(item) => { setPublishDialog(item); setPublishMode('CLASS'); setPublishPaid(false); setPublishError('') }} expandedClassId={expandedClassId} onToggleExpanded={(id) => setExpandedClassId((current) => current === id ? null : id)} onAddTopic={(classId) => setTopicDialog({ classId, topic: null })} onEditTopic={(classId, topic) => setTopicDialog({ classId, topic })} onDeleteTopic={deleteTopic} onMoveTopic={reorderTopic} onAddMaterial={(classId, topicId) => { setClassResourceError(''); setClassResourceFileName(''); setResourceKind('RESOURCE'); setResourceDialog({ classId, topicId }) }} onRemoveMaterial={removeClassResource} onOpenFile={openResourceFile} />}
-          {activePage === 'teams' && <TeamFinder posts={teamPosts} currentUserId={user?.id} onCreate={() => { setEditingTeam(null); setShowTeamModal(true) }} onEdit={(post) => { setEditingTeam(post); setShowTeamModal(true) }} onDelete={deleteTeam} onJoin={(teamId) => setTeamApplicationDialog(teamPosts.find((post) => post.id === teamId) || null)} onWithdraw={withdrawTeamRequest} onRepost={repostTeam} onManageRequests={openTeamRequests} onOpenConversation={openConversation} myApplications={myApplications} myApplicationsLoading={myApplicationsLoading} onLoadMyApplications={loadMyApplications} showApplications={myApplicationsOpen} onToggleApplications={(show) => { setMyApplicationsOpen(show); if (show) loadMyApplications() }} />}
-          {activePage === 'skills' && <SkillsMarketplace jobs={jobs} skills={skills} helpRequests={helpRequests} currentUserId={user?.id} onAddSkill={addSkill} onUpdateSkill={updateSkillProfile} onRemoveSkill={removeSkill} onCreate={() => { setEditingJob(null); setShowJobModal(true) }} onEdit={(job) => { setEditingJob(job); setShowJobModal(true) }} onClaim={(serviceId) => setHelpRequestDialog(jobs.find((job) => job.id === serviceId) || null)} onUpdateRequest={updateHelpRequest} onRateRequest={(requestId) => setHelpReviewDialog(helpRequests.find((request) => request.id === requestId) || null)} onDelete={deleteJob} onOpenConversation={openConversation} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }} updatingRequestId={updatingHelpRequestId} />}
+          {activePage === 'vault' && <Vault resources={filteredResources} search={vaultSearch} onSearch={(value) => { setVaultSearch(value); }} onAdd={() => { setResourceSaveError(''); setShowResourceModal(true) }} onDelete={deleteResource} onEdit={(item) => { setEditingResource(item); setResourceEditPaid(item.price != null) }} onUnpublish={unpublishResource} onToggleSave={toggleResourceSave} onReport={(id) => { setReportDialog(resources.find((item) => item.id === id) || null); setReportError('') }} onOpenFile={openResourceFile} onRate={(item) => { setRateError(''); setRateDialog(item) }} onViewDetail={(item) => setDetailResource(item)} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }} onNotice={setActionNotice} currentUserId={user?.id} token={session?.access_token} error={resourcesError} onRetry={() => retryLoad('resources')} retrying={retryingSection === 'resources'} />}
+          {activePage === 'classes' && <Classes classes={classes} currentUserId={user?.id} onAdd={() => { setEditingClass(null); setShowClassModal(true) }} onEdit={(item) => { setEditingClass(item); setShowClassModal(true) }} onDelete={deleteClass} onPublish={(item) => { setPublishDialog(item); setPublishMode('CLASS'); setPublishPaid(false); setPublishError('') }} expandedClassId={expandedClassId} onToggleExpanded={(id) => setExpandedClassId((current) => current === id ? null : id)} onAddTopic={(classId) => setTopicDialog({ classId, topic: null })} onEditTopic={(classId, topic) => setTopicDialog({ classId, topic })} onDeleteTopic={deleteTopic} onMoveTopic={reorderTopic} onAddMaterial={(classId, topicId) => { setClassResourceError(''); setClassResourceFileName(''); setResourceKind('RESOURCE'); setResourceDialog({ classId, topicId }) }} onRemoveMaterial={removeClassResource} onOpenFile={openResourceFile} error={classesError} onRetry={() => retryLoad('classes')} retrying={retryingSection === 'classes'} />}
+          {activePage === 'teams' && <TeamFinder posts={teamPosts} currentUserId={user?.id} onCreate={() => { setEditingTeam(null); setShowTeamModal(true) }} onEdit={(post) => { setEditingTeam(post); setShowTeamModal(true) }} onDelete={deleteTeam} onJoin={(teamId) => setTeamApplicationDialog(teamPosts.find((post) => post.id === teamId) || null)} onWithdraw={withdrawTeamRequest} onRepost={repostTeam} onManageRequests={openTeamRequests} onOpenConversation={openConversation} myApplications={myApplications} myApplicationsLoading={myApplicationsLoading} onLoadMyApplications={loadMyApplications} showApplications={myApplicationsOpen} onToggleApplications={(show) => { setMyApplicationsOpen(show); if (show) loadMyApplications() }} error={dataLoadError && activePage === 'teams' ? dataLoadError : ''} onRetry={() => retryLoad('teams')} retrying={retryingSection === 'teams'} />}
+          {activePage === 'skills' && <SkillsMarketplace jobs={jobs} skills={skills} helpRequests={helpRequests} currentUserId={user?.id} onAddSkill={addSkill} onUpdateSkill={updateSkillProfile} onRemoveSkill={removeSkill} onCreate={() => { setEditingJob(null); setShowJobModal(true) }} onEdit={(job) => { setEditingJob(job); setShowJobModal(true) }} onClaim={(serviceId) => setHelpRequestDialog(jobs.find((job) => job.id === serviceId) || null)} onUpdateRequest={updateHelpRequest} onRateRequest={(requestId) => setHelpReviewDialog(helpRequests.find((request) => request.id === requestId) || null)} onDelete={deleteJob} onOpenConversation={openConversation} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }} updatingRequestId={updatingHelpRequestId} error={dataLoadError && activePage === 'skills' ? dataLoadError : ''} onRetry={() => retryLoad('skills')} retrying={retryingSection === 'skills'} />}
           {activePage === 'account' && <AccountSettings />}
           {activePage === 'profile' && <PublicProfile profileId={selectedPublicProfileId} token={session?.access_token} onBack={() => go('dashboard')} />}
           {activePage === 'messages' && <MessagesPage key={selectedConversationId || 'messages'} token={session?.access_token} currentUserId={user?.id} initialConversationId={selectedConversationId} />}
@@ -2477,12 +2477,23 @@ function Dashboard({ classes, resources, teamPostCount, helpServiceCount, onAddR
           resources.length ? <ResourceList resources={resources.slice(0, 5)} onNavigate={() => onNavigate('vault')} /> : <div className="dashboard-empty"><strong>No recent resources</strong><span>Upload notes or browse what your classmates have shared.</span><button className="button ghost" onClick={() => onNavigate('vault')}>Explore Vault</button></div>
         )}
       </section>
-      <section className="section-card activity-card"><SectionHeader title="Community Activity" action="View all" onClick={() => onNavigate('vault')} /><Activity resources={resources.slice(0, 4)} /></section>
+      <section className="section-card activity-card">
+        <SectionHeader title="Community Activity" action="View all" onClick={() => onNavigate('vault')} />
+        {resourcesError ? (
+          <div className="activity-list">
+            <div className="data-load-warning compact" role="alert">
+              {resourcesError} <button className="button ghost" disabled={retryingSection === 'resources'} onClick={() => onRetry('resources')}>{retryingSection === 'resources' ? 'Retrying…' : 'Retry'}</button>
+            </div>
+          </div>
+        ) : (
+          <Activity resources={resources.slice(0, 4)} />
+        )}
+      </section>
     </div>
   </>
 }
 
-function Vault({ resources, search, onSearch, onAdd, onDelete, onEdit, onUnpublish, onToggleSave, onReport, onOpenFile, onRate, onViewDetail, onOpenProfile, onNotice, currentUserId, token }) {
+function Vault({ resources, search, onSearch, onAdd, onDelete, onEdit, onUnpublish, onToggleSave, onReport, onOpenFile, onRate, onViewDetail, onOpenProfile, onNotice, currentUserId, token, error, onRetry, retrying }) {
   const [sort, setSort] = useState('newest')
   const [visibility, setVisibility] = useState('all')
   const [pendingAction, setPendingAction] = useState('')
@@ -2571,7 +2582,25 @@ function Vault({ resources, search, onSearch, onAdd, onDelete, onEdit, onUnpubli
           {!isPrivate && !isOwner && <button className="button ghost" disabled={Boolean(pendingAction)} onClick={() => onReport(item.id)}>Report</button>}
         </div>
       </article><ResourceDiscussion resource={item} currentUserId={currentUserId} token={token} onOpenProfile={onOpenProfile} /></div>
-    }) : <div className="empty-state"><Library size={29} /><strong>{search.trim() ? 'No matching resources' : visibility === 'saved' ? 'No saved resources yet' : 'No resources found'}</strong><p>{search.trim() ? 'Try a different search term or clear the search.' : visibility === 'saved' ? 'Click Save on any resource card in the Vault to bookmark it here.' : 'Try a different visibility filter or add the first resource.'}</p>{search.trim() ? <button className="button secondary" onClick={() => onSearch('')}>Clear search</button> : <button className="button primary" onClick={onAdd}><Plus size={16} /> Add resource</button>}</div>}</div>
+    }) : error && !resources.length ? (
+        <div className="empty-state" role="alert">
+          <AlertCircle size={32} />
+          <strong>Could not load Vault resources</strong>
+          <p>{error || 'An error occurred while loading study materials from the Vault.'}</p>
+          {onRetry && (
+            <button className="button primary" disabled={retrying} onClick={onRetry}>
+              {retrying ? 'Retrying…' : 'Retry loading'}
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="empty-state">
+          <Library size={29} />
+          <strong>{search.trim() ? 'No matching resources' : visibility === 'saved' ? 'No saved resources yet' : 'No resources found'}</strong>
+          <p>{search.trim() ? 'Try a different search term or clear the search.' : visibility === 'saved' ? 'Click Save on any resource card in the Vault to bookmark it here.' : 'Try a different visibility filter or add the first resource.'}</p>
+          {search.trim() ? <button className="button secondary" onClick={() => onSearch('')}>Clear search</button> : <button className="button primary" onClick={onAdd}><Plus size={16} /> Add resource</button>}
+        </div>
+      )}</div>
   </section>
 }
 
@@ -2681,23 +2710,44 @@ function ResourceDiscussion({ resource, currentUserId, token, onOpenProfile }) {
   </section>
 }
 
-function Classes({ classes, currentUserId, onAdd, onEdit, onDelete, onPublish, expandedClassId, onToggleExpanded, onAddTopic, onEditTopic, onDeleteTopic, onMoveTopic, onAddMaterial, onRemoveMaterial, onOpenFile }) {
+function Classes({ classes, currentUserId, onAdd, onEdit, onDelete, onPublish, expandedClassId, onToggleExpanded, onAddTopic, onEditTopic, onDeleteTopic, onMoveTopic, onAddMaterial, onRemoveMaterial, onOpenFile, error, onRetry, retrying }) {
   return <section className="classes-page">
-    <div className="page-heading"><div><p className="eyebrow">MY LEARNING SPACE</p><h1>Virtual Study Classes</h1><p>Build focused learning spaces for the subjects you care about.</p></div><button className="button primary" onClick={onAdd} disabled={classes.length >= 10}><Plus size={16} /> Create class <span>{classes.length}/10</span></button></div>
+    <div className="page-heading"><div><p className="eyebrow">MY LEARNING SPACE</p><h1>Virtual Study Classes</h1><p>Build focused learning spaces for the subjects you care about.</p></div><button className="button primary" onClick={onAdd} disabled={classes.length >= 10}><Plus size={16} /> Create class <span>{error ? '—/10' : `${classes.length}/10`}</span></button></div>
+    {error && (
+      <div className="data-load-warning" role="alert" style={{ marginBottom: 20 }}>
+        {error}
+        {onRetry && <button className="button ghost" disabled={retrying} onClick={onRetry}>{retrying ? 'Retrying…' : 'Retry'}</button>}
+      </div>
+    )}
     <div className="full-class-grid">
-      {classes.map((item) => <div className={`class-workspace ${expandedClassId === item.id ? 'is-expanded' : ''}`} key={item.id}>
-        <ClassCard item={item} large />
-        <div className="class-workspace-actions"><button className="button ghost" onClick={() => onToggleExpanded(item.id)}>{expandedClassId === item.id ? 'Hide topics' : `Topics (${item.topicCount})`}</button>{item.creatorId === currentUserId && <><button className="button ghost" onClick={() => onPublish(item)}>Publish selected material</button><button className="icon-button" aria-label={`Edit ${item.name}`} title="Edit class" onClick={() => onEdit(item)}><Pencil size={15} /></button><button className="icon-danger" aria-label={`Delete ${item.name}`} title="Delete class" onClick={() => onDelete(item)}><Trash2 size={15} /></button></>}</div>
-        {expandedClassId === item.id && <div className="class-topic-section">
-          <div className="class-topic-heading"><strong>Topics and materials</strong>{item.creatorId === currentUserId && <button className="button ghost" onClick={() => onAddTopic(item.id)}><Plus size={14} /> Add topic</button>}</div>
-          {item.topics?.length ? [...item.topics].sort((left, right) => left.order - right.order).map((topic, index, orderedTopics) => <article className="class-topic" key={topic.id}>
-            <div className="class-topic-title"><strong>{topic.name}</strong>{item.creatorId === currentUserId && <div className="class-topic-actions"><button className="icon-button" disabled={index === 0} aria-label={`Move ${topic.name} up`} onClick={() => onMoveTopic(item, index, -1)}><ChevronUp size={15} /></button><button className="icon-button" disabled={index === orderedTopics.length - 1} aria-label={`Move ${topic.name} down`} onClick={() => onMoveTopic(item, index, 1)}><ChevronDown size={15} /></button><button className="icon-button" aria-label={`Edit ${topic.name}`} onClick={() => onEditTopic(item.id, topic)}><Pencil size={14} /></button><button className="icon-danger" aria-label={`Delete ${topic.name}`} onClick={() => onDeleteTopic(item, topic)}><Trash2 size={14} /></button></div>}</div>
-            {topic.resources?.length ? <ul>{topic.resources.map((material) => <li key={material.id}><ClassMaterial material={material} onOpenFile={onOpenFile} />{item.creatorId === currentUserId && <button className="icon-danger" aria-label="Remove material from topic" onClick={() => onRemoveMaterial(item, topic, material)}><X size={13} /></button>}</li>)}</ul> : <p className="class-topic-empty">No material added yet.</p>}
-            {item.creatorId === currentUserId && <button className="button ghost class-add-material" onClick={() => onAddMaterial(item.id, topic.id)}><Plus size={14} /> Add material</button>}
-          </article>) : <p className="class-topic-empty">No topics yet.</p>}
-        </div>}
-      </div>)}
-      <button className="create-class large" onClick={onAdd} disabled={classes.length >= 10}><Plus size={24} /><strong>Create a new class</strong><span>{classes.length >= 10 ? 'Class limit reached' : 'Start a focused study workspace'}</span></button>
+      {error && !classes.length ? (
+        <div className="team-empty" role="alert" style={{ gridColumn: '1 / -1' }}>
+          <AlertCircle size={32} />
+          <strong>Could not load your study classes</strong>
+          <p>{error || 'An error occurred while fetching your virtual classes.'}</p>
+          {onRetry && (
+            <button className="button primary" disabled={retrying} onClick={onRetry}>
+              {retrying ? 'Retrying…' : 'Retry loading'}
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          {classes.map((item) => <div className={`class-workspace ${expandedClassId === item.id ? 'is-expanded' : ''}`} key={item.id}>
+            <ClassCard item={item} large />
+            <div className="class-workspace-actions"><button className="button ghost" onClick={() => onToggleExpanded(item.id)}>{expandedClassId === item.id ? 'Hide topics' : `Topics (${item.topicCount})`}</button>{item.creatorId === currentUserId && <><button className="button ghost" onClick={() => onPublish(item)}>Publish selected material</button><button className="icon-button" aria-label={`Edit ${item.name}`} title="Edit class" onClick={() => onEdit(item)}><Pencil size={15} /></button><button className="icon-danger" aria-label={`Delete ${item.name}`} title="Delete class" onClick={() => onDelete(item)}><Trash2 size={15} /></button></>}</div>
+            {expandedClassId === item.id && <div className="class-topic-section">
+              <div className="class-topic-heading"><strong>Topics and materials</strong>{item.creatorId === currentUserId && <button className="button ghost" onClick={() => onAddTopic(item.id)}><Plus size={14} /> Add topic</button>}</div>
+              {item.topics?.length ? [...item.topics].sort((left, right) => left.order - right.order).map((topic, index, orderedTopics) => <article className="class-topic" key={topic.id}>
+                <div className="class-topic-title"><strong>{topic.name}</strong>{item.creatorId === currentUserId && <div className="class-topic-actions"><button className="icon-button" disabled={index === 0} aria-label={`Move ${topic.name} up`} onClick={() => onMoveTopic(item, index, -1)}><ChevronUp size={15} /></button><button className="icon-button" disabled={index === orderedTopics.length - 1} aria-label={`Move ${topic.name} down`} onClick={() => onMoveTopic(item, index, 1)}><ChevronDown size={15} /></button><button className="icon-button" aria-label={`Edit ${topic.name}`} onClick={() => onEditTopic(item.id, topic)}><Pencil size={14} /></button><button className="icon-danger" aria-label={`Delete ${topic.name}`} onClick={() => onDeleteTopic(item, topic)}><Trash2 size={14} /></button></div>}</div>
+                {topic.resources?.length ? <ul>{topic.resources.map((material) => <li key={material.id}><ClassMaterial material={material} onOpenFile={onOpenFile} />{item.creatorId === currentUserId && <button className="icon-danger" aria-label="Remove material from topic" onClick={() => onRemoveMaterial(item, topic, material)}><X size={13} /></button>}</li>)}</ul> : <p className="class-topic-empty">No material added yet.</p>}
+                {item.creatorId === currentUserId && <button className="button ghost class-add-material" onClick={() => onAddMaterial(item.id, topic.id)}><Plus size={14} /> Add material</button>}
+              </article>) : <p className="class-topic-empty">No topics yet.</p>}
+            </div>}
+          </div>)}
+          <button className="create-class large" onClick={onAdd} disabled={classes.length >= 10}><Plus size={24} /><strong>Create a new class</strong><span>{classes.length >= 10 ? 'Class limit reached' : 'Start a focused study workspace'}</span></button>
+        </>
+      )}
     </div>
   </section>
 }
@@ -2739,13 +2789,31 @@ function ClassMaterial({ material, onOpenFile }) {
   return <span><strong>{data.title}</strong><small>{data.kind === 'CODE' ? 'Code material' : 'Class note'}</small><pre>{data.content}</pre></span>
 }
 
-function TeamFinder({ posts, currentUserId, onCreate, onEdit, onDelete, onJoin, onWithdraw, onRepost, onManageRequests, onOpenConversation, myApplications, myApplicationsLoading, showApplications, onToggleApplications }) {
+function TeamFinder({ posts, currentUserId, onCreate, onEdit, onDelete, onJoin, onWithdraw, onRepost, onManageRequests, onOpenConversation, myApplications, myApplicationsLoading, showApplications, onToggleApplications, error, onRetry, retrying }) {
   return <section className="team-page">
     <div className="page-heading"><div><p className="eyebrow">ACADEMIC COLLABORATION</p><h1>Team Finder</h1><p>Find thoughtful collaborators, or lead your own academic team.</p></div><div className="hero-actions"><button className="button secondary" onClick={() => onToggleApplications(!showApplications)}>{showApplications ? 'Browse opportunities' : 'My Applications'}</button><button className="button primary" onClick={onCreate}><Plus size={16} /> Create team post</button></div></div>
     {showApplications ? <MyTeamApplications applications={myApplications} loading={myApplicationsLoading} onWithdraw={onWithdraw} /> : <>
       <div className="team-intro"><div className="team-intro-icon"><UsersRound size={23} /></div><div><strong>Ready to lead?</strong><p>Post what you are working on, name the skills you need, and let the right teammates find you.</p></div><button className="button ghost" onClick={onCreate}>Start a team <ArrowRight size={14} /></button></div>
-      <div className="team-toolbar"><strong>{posts.length ? `${posts.length} opportunities` : 'Open opportunities'}</strong><span>{posts.filter((post) => post.members < post.size).length} with space</span></div>
-      {posts.length ? <div className="team-grid">{posts.map((post) => <TeamPost key={post.id} post={post} currentUserId={currentUserId} onEdit={onEdit} onDelete={onDelete} onJoin={onJoin} onWithdraw={onWithdraw} onRepost={onRepost} onManageRequests={onManageRequests} onOpenConversation={onOpenConversation} />)}</div> : <div className="team-empty"><UsersRound size={30} /><strong>No team opportunities yet</strong><p>Be the first leader to create an academic collaboration post.</p><button className="button primary" onClick={onCreate}><Plus size={16} /> Create team post</button></div>}
+      <div className="team-toolbar">
+        <strong>{error ? 'Opportunities unavailable' : posts.length ? `${posts.length} opportunities` : 'Open opportunities'}</strong>
+        <span>{error ? '—' : `${posts.filter((post) => post.members < post.size).length} with space`}</span>
+      </div>
+      {posts.length ? (
+        <div className="team-grid">{posts.map((post) => <TeamPost key={post.id} post={post} currentUserId={currentUserId} onEdit={onEdit} onDelete={onDelete} onJoin={onJoin} onWithdraw={onWithdraw} onRepost={onRepost} onManageRequests={onManageRequests} onOpenConversation={onOpenConversation} />)}</div>
+      ) : error ? (
+        <div className="team-empty" role="alert">
+          <AlertCircle size={32} />
+          <strong>Could not load team opportunities</strong>
+          <p>{error || 'An error occurred while loading collaboration posts.'}</p>
+          {onRetry && (
+            <button className="button primary" disabled={retrying} onClick={onRetry}>
+              {retrying ? 'Retrying…' : 'Retry loading'}
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="team-empty"><UsersRound size={30} /><strong>No team opportunities yet</strong><p>Be the first leader to create an academic collaboration post.</p><button className="button primary" onClick={onCreate}><Plus size={16} /> Create team post</button></div>
+      )}
     </>}
   </section>
 }
@@ -3085,18 +3153,33 @@ function ReviewForm({ request, onSubmit, onClose }) {
   </form>
 }
 
-function SkillsMarketplace({ jobs, skills, helpRequests, currentUserId, onAddSkill, onUpdateSkill, onRemoveSkill, onCreate, onEdit, onClaim, onUpdateRequest, onRateRequest, onDelete, onOpenConversation, onOpenProfile, updatingRequestId }) {
-  const openJobs = jobs.filter((job) => job.status === 'OPEN').length
-  const activeJobs = helpRequests.filter((request) => ['ACCEPTED', 'IN_PROGRESS'].includes(request.status)).length
+function SkillsMarketplace({ jobs, skills, helpRequests, currentUserId, onAddSkill, onUpdateSkill, onRemoveSkill, onCreate, onEdit, onClaim, onUpdateRequest, onRateRequest, onDelete, onOpenConversation, onOpenProfile, updatingRequestId, error, onRetry, retrying }) {
+  const openJobs = error ? '—' : jobs.filter((job) => job.status === 'OPEN').length
+  const activeJobs = error ? '—' : helpRequests.filter((request) => ['ACCEPTED', 'IN_PROGRESS'].includes(request.status)).length
   return <section className="skills-page">
     <div className="page-heading"><div><p className="eyebrow">STUDENT SERVICES MARKETPLACE</p><h1>Skills & Help</h1><p>Post work you need done, or earn by helping another student move forward.</p></div><button className="button primary" onClick={onCreate}><Plus size={16} /> Offer a service</button></div>
     <div className="market-stats"><div><strong>{openJobs}</strong><span>Available services</span></div><div><strong>{activeJobs}</strong><span>Active interactions</span></div><div><strong>Direct</strong><span>Student-to-student payment</span></div></div>
     <section className="profile-skills"><div><strong>My skills</strong><p>Share proficiency, relevant experience and an optional work sample.</p></div>
       <form className="profile-skill-form" onSubmit={onAddSkill}><label>Skill<input name="skill" required maxLength={80} placeholder="e.g. React development" /></label><label>Proficiency<select name="proficiency" defaultValue="BEGINNER"><option value="BEGINNER">Beginner</option><option value="INTERMEDIATE">Intermediate</option><option value="ADVANCED">Advanced</option><option value="EXPERT">Expert</option></select></label><label style={{ gridColumn: '1 / -1' }}>Experience<textarea name="experience" maxLength={1200} placeholder="Describe your experience with this skill." /></label><label>Portfolio link<input name="portfolioUrl" type="url" maxLength={500} placeholder="https://..." /></label><button className="button secondary" type="submit" style={{ height: 'max-content' }}><Plus size={14} /> Add skill</button></form>
-      <div className="skill-profile-list">{skills.length ? skills.map((skill) => <form className="skill-profile-card" key={skill.id} onSubmit={(event) => onUpdateSkill(event, skill.id)}><div className="skill-profile-heading"><strong>{skill.name}</strong><button type="button" className="icon-danger" aria-label={`Remove ${skill.name}`} onClick={() => onRemoveSkill(skill.id)}><X size={12} /></button></div><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}><label>Proficiency<select name="proficiency" defaultValue={skill.proficiency || 'BEGINNER'}><option value="BEGINNER">Beginner</option><option value="INTERMEDIATE">Intermediate</option><option value="ADVANCED">Advanced</option><option value="EXPERT">Expert</option></select></label><label>Portfolio link<input name="portfolioUrl" type="url" maxLength={500} defaultValue={skill.portfolioUrl || ''} placeholder="https://..." /></label></div><label>Experience<textarea name="experience" maxLength={1200} defaultValue={skill.experience || ''} placeholder="Describe your experience." /></label><button className="button ghost" type="submit">Save skill profile</button></form>) : <p className="class-topic-empty">No skills added yet.</p>}</div>
+      <div className="skill-profile-list">{skills.length ? skills.map((skill) => <form className="skill-profile-card" key={skill.id} onSubmit={(event) => onUpdateSkill(event, skill.id)}><div className="skill-profile-heading"><strong>{skill.name}</strong><button type="button" className="icon-danger" aria-label={`Remove ${skill.name}`} onClick={() => onRemoveSkill(skill.id)}><X size={12} /></button></div><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}><label>Proficiency<select name="proficiency" defaultValue={skill.proficiency || 'BEGINNER'}><option value="BEGINNER">Beginner</option><option value="INTERMEDIATE">Intermediate</option><option value="ADVANCED">Advanced</option><option value="EXPERT">Expert</option></select></label><label>Portfolio link<input name="portfolioUrl" type="url" maxLength={500} defaultValue={skill.portfolioUrl || ''} placeholder="https://..." /></label></div><label>Experience<textarea name="experience" maxLength={1200} defaultValue={skill.experience || ''} placeholder="Describe your experience." /></label><button className="button ghost" type="submit">Save skill profile</button></form>) : error ? <p className="class-topic-empty" role="alert">Could not load skill profile.</p> : <p className="class-topic-empty">No skills added yet.</p>}</div>
     </section>
     <div className="market-toolbar"><div><strong>Browse help services</strong><p>Find work that matches what you know.</p></div><span>Ratings are based on completed, verified interactions</span></div>
-    {jobs.length ? <div className="job-grid">{jobs.map((job) => <JobCard key={job.id} job={job} currentUserId={currentUserId} helpRequest={helpRequests.find((request) => request.serviceId === job.id && request.requesterId === currentUserId)} onClaim={onClaim} onEdit={onEdit} onDelete={onDelete} onOpenProfile={onOpenProfile} />)}</div> : <div className="team-empty job-empty"><Sparkles size={30} /><strong>No help services yet</strong><p>Offer the first academic service to help another student.</p><button className="button primary" onClick={onCreate}><Plus size={16} /> Offer a service</button></div>}
+    {jobs.length ? (
+      <div className="job-grid">{jobs.map((job) => <JobCard key={job.id} job={job} currentUserId={currentUserId} helpRequest={helpRequests.find((request) => request.serviceId === job.id && request.requesterId === currentUserId)} onClaim={onClaim} onEdit={onEdit} onDelete={onDelete} onOpenProfile={onOpenProfile} />)}</div>
+    ) : error ? (
+      <div className="team-empty job-empty" role="alert">
+        <AlertCircle size={32} />
+        <strong>Could not load help services</strong>
+        <p>{error || 'An error occurred while loading the services marketplace.'}</p>
+        {onRetry && (
+          <button className="button primary" disabled={retrying} onClick={onRetry}>
+            {retrying ? 'Retrying…' : 'Retry loading'}
+          </button>
+        )}
+      </div>
+    ) : (
+      <div className="team-empty job-empty"><Sparkles size={30} /><strong>No help services yet</strong><p>Offer the first academic service to help another student.</p><button className="button primary" onClick={onCreate}><Plus size={16} /> Offer a service</button></div>
+    )}
     <section className="help-request-list">
       <div className="market-toolbar"><div><strong>My help interactions</strong><p>Requests you made or received.</p></div></div>
       {helpRequests.length ? helpRequests.map((request) => (
@@ -3110,7 +3193,7 @@ function SkillsMarketplace({ jobs, skills, helpRequests, currentUserId, onAddSki
           onOpenProfile={onOpenProfile}
           updatingRequestId={updatingRequestId}
         />
-      )) : <p className="class-topic-empty">No help interactions yet.</p>}
+      )) : error ? <p className="class-topic-empty" role="alert">Could not load help interactions.</p> : <p className="class-topic-empty">No help interactions yet.</p>}
     </section>
   </section>
 }
@@ -3221,7 +3304,7 @@ function HelpRequestRow({ request, currentUserId, onTransition, onRate, onOpenCo
   </article>
 }
 
-function ProjectsPage({ projects, labs, currentUserId, onCreateProject, onEditProject, onDeleteProject, onCreateLab, onEditLab, onDeleteLab, onOpenFile, onDownloadLab, onOpenProfile }) {
+function ProjectsPage({ projects, labs, currentUserId, onCreateProject, onEditProject, onDeleteProject, onCreateLab, onEditLab, onDeleteLab, onOpenFile, onDownloadLab, onOpenProfile, error, onRetry, retrying }) {
   const [tab, setTab] = useState('projects')
   const [expandedLabId, setExpandedLabId] = useState(null)
 
@@ -3244,10 +3327,10 @@ function ProjectsPage({ projects, labs, currentUserId, onCreateProject, onEditPr
 
       <div className="projects-tab-bar">
         <button className={`tab-button ${tab === 'projects' ? 'active' : ''}`} onClick={() => setTab('projects')}>
-          <FolderKanban size={15} style={{ verticalAlign: 'middle', marginRight: 6 }} /> Projects ({projects.length})
+          <FolderKanban size={15} style={{ verticalAlign: 'middle', marginRight: 6 }} /> Projects ({error ? '—' : projects.length})
         </button>
         <button className={`tab-button ${tab === 'labs' ? 'active' : ''}`} onClick={() => setTab('labs')}>
-          <Code2 size={15} style={{ verticalAlign: 'middle', marginRight: 6 }} /> Lab Repository ({labs.length})
+          <Code2 size={15} style={{ verticalAlign: 'middle', marginRight: 6 }} /> Lab Repository ({error ? '—' : labs.length})
         </button>
       </div>
 
@@ -3265,6 +3348,17 @@ function ProjectsPage({ projects, labs, currentUserId, onCreateProject, onEditPr
                 onOpenProfile={onOpenProfile}
               />
             ))}
+          </div>
+        ) : error ? (
+          <div className="team-empty" role="alert">
+            <AlertCircle size={32} />
+            <strong>Could not load projects</strong>
+            <p>{error || 'An error occurred while loading academic projects.'}</p>
+            {onRetry && (
+              <button className="button primary" disabled={retrying} onClick={onRetry}>
+                {retrying ? 'Retrying…' : 'Retry loading'}
+              </button>
+            )}
           </div>
         ) : (
           <div className="team-empty">
@@ -3290,6 +3384,17 @@ function ProjectsPage({ projects, labs, currentUserId, onCreateProject, onEditPr
                 onOpenProfile={onOpenProfile}
               />
             ))}
+          </div>
+        ) : error ? (
+          <div className="team-empty" role="alert">
+            <AlertCircle size={32} />
+            <strong>Could not load repository documents</strong>
+            <p>{error || 'An error occurred while loading course documents.'}</p>
+            {onRetry && (
+              <button className="button primary" disabled={retrying} onClick={onRetry}>
+                {retrying ? 'Retrying…' : 'Retry loading'}
+              </button>
+            )}
           </div>
         ) : (
           <div className="team-empty">

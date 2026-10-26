@@ -5,18 +5,18 @@ const http = require('node:http');
 // Import built express app
 const { app } = require('../dist/index');
 
-function makePreflightRequest(server, origin) {
+function makePreflightRequest(server, origin, path = '/api/health', reqHeaders = 'Authorization') {
   return new Promise((resolve, reject) => {
     const address = server.address();
     const req = http.request({
       hostname: '127.0.0.1',
       port: address.port,
-      path: '/api/health',
+      path,
       method: 'OPTIONS',
       headers: {
         Origin: origin,
         'Access-Control-Request-Method': 'GET',
-        'Access-Control-Request-Headers': 'Authorization',
+        'Access-Control-Request-Headers': reqHeaders,
       },
     }, (res) => {
       resolve({
@@ -98,5 +98,40 @@ test('StudyOS CORS and Security Headers Hardening Suite', async (t) => {
     assert.equal(res.headers['referrer-policy'], 'strict-origin-when-cross-origin');
     assert.ok(res.headers['permissions-policy'], 'Permissions-Policy header must be present');
     assert.equal(res.headers['x-powered-by'], undefined, 'X-Powered-By header must be removed');
+  });
+
+  await t.test('5. Preflight on /api/v1/studyos/resources returns 204 and CORS headers', async () => {
+    const res = await makePreflightRequest(
+      server,
+      'https://studyos-nu-three.vercel.app',
+      '/api/v1/studyos/resources',
+      'Authorization, Content-Type, Cache-Control'
+    );
+    assert.equal(res.statusCode, 204, 'Preflight status must be 204');
+    assert.equal(res.headers['access-control-allow-origin'], 'https://studyos-nu-three.vercel.app');
+    assert.equal(res.headers['access-control-allow-credentials'], 'true');
+  });
+
+  await t.test('6. Preflight from multi-dash Vercel preview branch is allowed', async () => {
+    const res = await makePreflightRequest(
+      server,
+      'https://studyos-git-main-dibyarat.vercel.app',
+      '/api/v1/studyos/dashboard/summary'
+    );
+    assert.equal(res.statusCode, 204);
+    assert.equal(res.headers['access-control-allow-origin'], 'https://studyos-git-main-dibyarat.vercel.app');
+  });
+
+  await t.test('7. Preflight from custom domain and CampAssist domain is allowed', async () => {
+    const resStudyOS = await makePreflightRequest(server, 'https://app.studyos.me', '/api/v1/studyos/classes');
+    assert.equal(resStudyOS.headers['access-control-allow-origin'], 'https://app.studyos.me');
+
+    const resCampAssist = await makePreflightRequest(server, 'https://campassist.me', '/api/v1/studyos/teams');
+    assert.equal(resCampAssist.headers['access-control-allow-origin'], 'https://campassist.me');
+  });
+
+  await t.test('8. Preflight to API route from untrusted origin does NOT receive CORS', async () => {
+    const res = await makePreflightRequest(server, 'https://untrusted.example', '/api/v1/studyos/resources');
+    assert.equal(res.headers['access-control-allow-origin'], undefined);
   });
 });

@@ -45,36 +45,49 @@ const exactAllowedOrigins = new Set([
   'http://localhost:5174',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:3000',
-  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
-  ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map((s) => s.trim()) : []),
+  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL.trim().replace(/\/$/, '')] : []),
+  ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map((s) => s.trim().replace(/\/$/, '')) : []),
 ]);
 
 const isOriginAllowed = (origin?: string): boolean => {
   if (!origin) return true;
   const trimmed = origin.trim().replace(/\/$/, '');
   if (exactAllowedOrigins.has(trimmed)) return true;
-  if (/^https:\/\/studyos(-[a-z0-9]+)?\.vercel\.app$/i.test(trimmed)) return true;
+  if (/^https:\/\/(?:[a-z0-9-]+\.)?studyos\.me$/i.test(trimmed)) return true;
+  if (/^https:\/\/(?:[a-z0-9-]+\.)?campassist\.me$/i.test(trimmed)) return true;
+  if (/^https:\/\/(?:studyos|campassist)[a-z0-9-]*\.vercel\.app$/i.test(trimmed)) return true;
+  if (process.env.NODE_ENV !== 'production' && /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i.test(trimmed)) return true;
   return false;
 };
 
 app.disable('x-powered-by');
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || isOriginAllowed(origin)) {
-        callback(null, true);
-      } else {
-        callback(null, false);
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-    exposedHeaders: ['Content-Range', 'X-Content-Range'],
-    maxAge: 86400,
-  }),
-);
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || isOriginAllowed(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Cache-Control',
+    'Pragma',
+    'Range',
+  ],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400,
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
 
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
