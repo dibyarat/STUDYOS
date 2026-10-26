@@ -5,6 +5,7 @@ import { apiRequest, apiUpload, resolveEndpoint } from './lib/api.js'
 import { discussionApi } from './lib/discussions.js'
 import { trackPageView, trackEvent } from './lib/analytics.js'
 import {
+  AlertCircle,
   ArrowRight,
   Bell,
   BriefcaseBusiness,

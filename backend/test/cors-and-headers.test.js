@@ -126,6 +126,14 @@ test('StudyOS CORS and Security Headers Hardening Suite', async (t) => {
     const resStudyOS = await makePreflightRequest(server, 'https://app.studyos.me', '/api/v1/studyos/classes');
     assert.equal(resStudyOS.headers['access-control-allow-origin'], 'https://app.studyos.me');
 
+    const resWebsite = await makePreflightRequest(server, 'https://www.studyos.website', '/api/v1/studyos/classes');
+    assert.equal(resWebsite.statusCode, 204);
+    assert.equal(resWebsite.headers['access-control-allow-origin'], 'https://www.studyos.website');
+
+    const resApexWebsite = await makePreflightRequest(server, 'https://studyos.website', '/api/v1/studyos/resources');
+    assert.equal(resApexWebsite.statusCode, 204);
+    assert.equal(resApexWebsite.headers['access-control-allow-origin'], 'https://studyos.website');
+
     const resCampAssist = await makePreflightRequest(server, 'https://campassist.me', '/api/v1/studyos/teams');
     assert.equal(resCampAssist.headers['access-control-allow-origin'], 'https://campassist.me');
   });

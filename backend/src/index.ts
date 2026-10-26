@@ -36,8 +36,12 @@ const PORT = Number(process.env.PORT || 3001);
 
 const exactAllowedOrigins = new Set([
   'https://studyos-nu-three.vercel.app',
+  'https://studyos.website',
+  'https://www.studyos.website',
   'https://studyos.me',
   'https://www.studyos.me',
+  'https://campassist.website',
+  'https://www.campassist.website',
   'https://campassist.me',
   'https://www.campassist.me',
   'http://localhost:5173',
@@ -53,8 +57,8 @@ const isOriginAllowed = (origin?: string): boolean => {
   if (!origin) return true;
   const trimmed = origin.trim().replace(/\/$/, '');
   if (exactAllowedOrigins.has(trimmed)) return true;
-  if (/^https:\/\/(?:[a-z0-9-]+\.)?studyos\.me$/i.test(trimmed)) return true;
-  if (/^https:\/\/(?:[a-z0-9-]+\.)?campassist\.me$/i.test(trimmed)) return true;
+  if (/^https:\/\/(?:[a-z0-9-]+\.)?studyos\.(?:website|me)$/i.test(trimmed)) return true;
+  if (/^https:\/\/(?:[a-z0-9-]+\.)?campassist\.(?:website|me)$/i.test(trimmed)) return true;
   if (/^https:\/\/(?:studyos|campassist)[a-z0-9-]*\.vercel\.app$/i.test(trimmed)) return true;
   if (process.env.NODE_ENV !== 'production' && /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i.test(trimmed)) return true;
   return false;

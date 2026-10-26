@@ -9,7 +9,7 @@
     "start:migrate": "node dist/index.js",
     "migrate": "echo \"No migrations needed with Firestore\"",
     "dev": "node --watch dist/index.js",
-    "test": "echo \"No backend tests configured\""
+    "test": "npm run build && node --test test/*.test.js"
   },
   "keywords": [],
   "type": "commonjs",
