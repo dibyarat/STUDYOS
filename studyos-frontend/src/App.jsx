@@ -84,7 +84,12 @@ const normalizeResource = (resource) => ({
 
 const normalizeTeamPost = (post) => ({
   ...post,
-  creatorName: post.creator?.name || 'Student',
+  creatorName:
+    post.creatorName ||
+    post.creator?.name ||
+    post.creator?.fullName ||
+    post.creator?.profile?.fullName ||
+    (post.creator?.email ? post.creator.email.split('@')[0] : 'Team Creator'),
   skills: post.skills || post.reqSkills || '',
   size: post.size ?? post.teamSize ?? 2,
   members: post.members ?? post.memberships?.length ?? 1,
@@ -1962,7 +1967,7 @@ function App() {
           {activePage === 'dashboard' && <Dashboard classes={classes} resources={filteredResources} teamPostCount={teamPostCount} helpServiceCount={helpServiceCount} onAddResource={() => { setResourceSaveError(''); setShowResourceModal(true) }} onAddClass={() => setShowClassModal(true)} onNavigate={go} userName={userName} currentUserId={user?.id} token={session?.access_token} resourcesError={resourcesError} classesError={classesError} summaryError={summaryError} onRetry={retryLoad} retryingSection={retryingSection} />}
           {activePage === 'vault' && <Vault resources={filteredResources} search={vaultSearch} onSearch={(value) => { setVaultSearch(value); }} onAdd={() => { setResourceSaveError(''); setShowResourceModal(true) }} onDelete={deleteResource} onEdit={(item) => { setEditingResource(item); setResourceEditPaid(item.price != null) }} onUnpublish={unpublishResource} onToggleSave={toggleResourceSave} onReport={(id) => { setReportDialog(resources.find((item) => item.id === id) || null); setReportError('') }} onOpenFile={openResourceFile} onRate={(item) => { setRateError(''); setRateDialog(item) }} onViewDetail={(item) => setDetailResource(item)} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }} onNotice={setActionNotice} currentUserId={user?.id} token={session?.access_token} error={resourcesError} onRetry={() => retryLoad('resources')} retrying={retryingSection === 'resources'} />}
           {activePage === 'classes' && <Classes classes={classes} currentUserId={user?.id} onAdd={() => { setEditingClass(null); setShowClassModal(true) }} onEdit={(item) => { setEditingClass(item); setShowClassModal(true) }} onDelete={deleteClass} onPublish={(item) => { setPublishDialog(item); setPublishMode('CLASS'); setPublishPaid(false); setPublishError('') }} expandedClassId={expandedClassId} onToggleExpanded={(id) => setExpandedClassId((current) => current === id ? null : id)} onAddTopic={(classId) => setTopicDialog({ classId, topic: null })} onEditTopic={(classId, topic) => setTopicDialog({ classId, topic })} onDeleteTopic={deleteTopic} onMoveTopic={reorderTopic} onAddMaterial={(classId, topicId) => { setClassResourceError(''); setClassResourceFileName(''); setResourceKind('RESOURCE'); setResourceDialog({ classId, topicId }) }} onRemoveMaterial={removeClassResource} onOpenFile={openResourceFile} error={classesError} onRetry={() => retryLoad('classes')} retrying={retryingSection === 'classes'} />}
-          {activePage === 'teams' && <TeamFinder posts={teamPosts} currentUserId={user?.id} onCreate={() => { setEditingTeam(null); setShowTeamModal(true) }} onEdit={(post) => { setEditingTeam(post); setShowTeamModal(true) }} onDelete={deleteTeam} onJoin={(teamId) => setTeamApplicationDialog(teamPosts.find((post) => post.id === teamId) || null)} onWithdraw={withdrawTeamRequest} onRepost={repostTeam} onManageRequests={openTeamRequests} onOpenConversation={openConversation} myApplications={myApplications} myApplicationsLoading={myApplicationsLoading} onLoadMyApplications={loadMyApplications} showApplications={myApplicationsOpen} onToggleApplications={(show) => { setMyApplicationsOpen(show); if (show) loadMyApplications() }} error={dataLoadError && activePage === 'teams' ? dataLoadError : ''} onRetry={() => retryLoad('teams')} retrying={retryingSection === 'teams'} />}
+          {activePage === 'teams' && <TeamFinder posts={teamPosts} currentUserId={user?.id} onCreate={() => { setEditingTeam(null); setShowTeamModal(true) }} onEdit={(post) => { setEditingTeam(post); setShowTeamModal(true) }} onDelete={deleteTeam} onJoin={(teamId) => setTeamApplicationDialog(teamPosts.find((post) => post.id === teamId) || null)} onWithdraw={withdrawTeamRequest} onRepost={repostTeam} onManageRequests={openTeamRequests} onOpenConversation={openConversation} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }} myApplications={myApplications} myApplicationsLoading={myApplicationsLoading} onLoadMyApplications={loadMyApplications} showApplications={myApplicationsOpen} onToggleApplications={(show) => { setMyApplicationsOpen(show); if (show) loadMyApplications() }} error={dataLoadError && activePage === 'teams' ? dataLoadError : ''} onRetry={() => retryLoad('teams')} retrying={retryingSection === 'teams'} />}
           {activePage === 'skills' && <SkillsMarketplace jobs={jobs} skills={skills} helpRequests={helpRequests} currentUserId={user?.id} onAddSkill={addSkill} onUpdateSkill={updateSkillProfile} onRemoveSkill={removeSkill} onCreate={() => { setEditingJob(null); setShowJobModal(true) }} onEdit={(job) => { setEditingJob(job); setShowJobModal(true) }} onClaim={(serviceId) => setHelpRequestDialog(jobs.find((job) => job.id === serviceId) || null)} onUpdateRequest={updateHelpRequest} onRateRequest={(requestId) => setHelpReviewDialog(helpRequests.find((request) => request.id === requestId) || null)} onDelete={deleteJob} onOpenConversation={openConversation} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }} updatingRequestId={updatingHelpRequestId} error={dataLoadError && activePage === 'skills' ? dataLoadError : ''} onRetry={() => retryLoad('skills')} retrying={retryingSection === 'skills'} />}
           {activePage === 'account' && <AccountSettings />}
           {activePage === 'profile' && <PublicProfile profileId={selectedPublicProfileId} token={session?.access_token} onBack={() => go('dashboard')} />}
@@ -2790,17 +2795,17 @@ function ClassMaterial({ material, onOpenFile }) {
   return <span><strong>{data.title}</strong><small>{data.kind === 'CODE' ? 'Code material' : 'Class note'}</small><pre>{data.content}</pre></span>
 }
 
-function TeamFinder({ posts, currentUserId, onCreate, onEdit, onDelete, onJoin, onWithdraw, onRepost, onManageRequests, onOpenConversation, myApplications, myApplicationsLoading, showApplications, onToggleApplications, error, onRetry, retrying }) {
+function TeamFinder({ posts, currentUserId, onCreate, onEdit, onDelete, onJoin, onWithdraw, onRepost, onManageRequests, onOpenConversation, onOpenProfile, myApplications, myApplicationsLoading, showApplications, onToggleApplications, error, onRetry, retrying }) {
   return <section className="team-page">
     <div className="page-heading"><div><p className="eyebrow">ACADEMIC COLLABORATION</p><h1>Team Finder</h1><p>Find thoughtful collaborators, or lead your own academic team.</p></div><div className="hero-actions"><button className="button secondary" onClick={() => onToggleApplications(!showApplications)}>{showApplications ? 'Browse opportunities' : 'My Applications'}</button><button className="button primary" onClick={onCreate}><Plus size={16} /> Create team post</button></div></div>
-    {showApplications ? <MyTeamApplications applications={myApplications} loading={myApplicationsLoading} onWithdraw={onWithdraw} /> : <>
+    {showApplications ? <MyTeamApplications applications={myApplications} loading={myApplicationsLoading} onWithdraw={onWithdraw} onOpenProfile={onOpenProfile} /> : <>
       <div className="team-intro"><div className="team-intro-icon"><UsersRound size={23} /></div><div><strong>Ready to lead?</strong><p>Post what you are working on, name the skills you need, and let the right teammates find you.</p></div><button className="button ghost" onClick={onCreate}>Start a team <ArrowRight size={14} /></button></div>
       <div className="team-toolbar">
         <strong>{error ? 'Opportunities unavailable' : posts.length ? `${posts.length} opportunities` : 'Open opportunities'}</strong>
         <span>{error ? '—' : `${posts.filter((post) => post.members < post.size).length} with space`}</span>
       </div>
       {posts.length ? (
-        <div className="team-grid">{posts.map((post) => <TeamPost key={post.id} post={post} currentUserId={currentUserId} onEdit={onEdit} onDelete={onDelete} onJoin={onJoin} onWithdraw={onWithdraw} onRepost={onRepost} onManageRequests={onManageRequests} onOpenConversation={onOpenConversation} />)}</div>
+        <div className="team-grid">{posts.map((post) => <TeamPost key={post.id} post={post} currentUserId={currentUserId} onEdit={onEdit} onDelete={onDelete} onJoin={onJoin} onWithdraw={onWithdraw} onRepost={onRepost} onManageRequests={onManageRequests} onOpenConversation={onOpenConversation} onOpenProfile={onOpenProfile} />)}</div>
       ) : error ? (
         <div className="team-empty" role="alert">
           <AlertCircle size={32} />
@@ -2819,21 +2824,35 @@ function TeamFinder({ posts, currentUserId, onCreate, onEdit, onDelete, onJoin, 
   </section>
 }
 
-function MyTeamApplications({ applications, loading, onWithdraw }) {
+function MyTeamApplications({ applications, loading, onWithdraw, onOpenProfile }) {
   if (loading) return <p className="data-load-loading" role="status">Loading your applications…</p>
   if (!applications.length) return <div className="team-empty"><strong>No applications yet</strong><p>When you apply to a team, its status and deadline will appear here.</p></div>
   const statusLabels = { PENDING: 'Submitted', SHORTLISTED: 'Under review · shortlisted', ACCEPTED: 'Selected', REJECTED: 'Not selected', WITHDRAWN: 'Withdrawn' }
-  return <div className="my-team-applications">{applications.map((application) => <article className="team-application-card" key={application.id}>
-    <div className="team-application-card-header"><div><strong>{application.team.title}</strong><small>{application.roleAppliedFor || 'General Member'} · Submitted {new Date(application.createdAt).toLocaleDateString()}</small></div><span className="team-status">{statusLabels[application.status] || application.status}</span></div>
-    <div className="team-post-meta"><span>Deadline: {application.deadline ? new Date(application.deadline).toLocaleDateString() : 'No deadline'}</span><span>{application.isExpired ? 'Applications closed' : 'Active recruitment'}</span></div>
-    {['PENDING', 'SHORTLISTED'].includes(application.status) && <div className="post-actions"><button className="button secondary" onClick={() => onWithdraw(application.team.id, application.id)}>Withdraw application</button></div>}
-    {application.status === 'ACCEPTED' && <p className="job-status">You have been selected; the team owner has enabled team chat access.</p>}
-  </article>)}</div>
+  return <div className="my-team-applications">{applications.map((application) => {
+    const creatorName = application.team?.creatorName || application.team?.creator?.name || 'Team Creator'
+    const creatorId = application.team?.creatorId || application.team?.creator?.id
+    return <article className="team-application-card" key={application.id}>
+      <div className="team-application-card-header">
+        <div>
+          <strong>{application.team.title}</strong>
+          <small>
+            {application.roleAppliedFor || 'General Member'} · Submitted {new Date(application.createdAt).toLocaleDateString()}
+            {creatorName && (
+              <> · Hiring Lead: <button className="profile-link-button" type="button" disabled={!creatorId} onClick={() => onOpenProfile?.(creatorId)}>{creatorName}</button></>
+            )}
+          </small>
+        </div>
+        <span className="team-status">{statusLabels[application.status] || application.status}</span>
+      </div>
+      <div className="team-post-meta"><span>Deadline: {application.deadline ? new Date(application.deadline).toLocaleDateString() : 'No deadline'}</span><span>{application.isExpired ? 'Applications closed' : 'Active recruitment'}</span></div>
+      {['PENDING', 'SHORTLISTED'].includes(application.status) && <div className="post-actions"><button className="button secondary" onClick={() => onWithdraw(application.team.id, application.id)}>Withdraw application</button></div>}
+      {application.status === 'ACCEPTED' && <p className="job-status">You have been selected; the team owner has enabled team chat access.</p>}
+    </article>
+  })}</div>
 }
 
-function TeamPost({ post, currentUserId, onEdit, onDelete, onJoin, onWithdraw, onRepost, onManageRequests, onOpenConversation }) {
+function TeamPost({ post, currentUserId, onEdit, onDelete, onJoin, onWithdraw, onRepost, onManageRequests, onOpenConversation, onOpenProfile }) {
   const skills = String(post.skills || '').split(',').map((skill) => skill.trim()).filter(Boolean)
-  const initials = (post.creatorName || 'Student').split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
   const isOwner = post.creatorId === currentUserId
   const isMember = post.memberships?.some((member) => member.userId === currentUserId)
   const ownRequest = post.requests?.[0]
@@ -2842,9 +2861,112 @@ function TeamPost({ post, currentUserId, onEdit, onDelete, onJoin, onWithdraw, o
   const expired = Boolean(post.isExpired)
   const roles = Array.isArray(post.roles) ? post.roles : []
   const rolesAvailable = roles.some((role) => role.openings > (post.acceptedRoleCounts?.[role.title] || 0))
-  return <article className="team-post"><div className="team-post-top"><span className="type-pill">{post.type.replaceAll('_', ' ')}</span><span className={`team-status ${full || expired ? 'full' : ''}`}>{expired ? 'Expired' : full ? 'Full' : 'Open'}</span></div><h2>{post.title}</h2><p className="team-description">{post.description}</p>{post.requirements && <p className="team-description"><strong>Requirements:</strong> {post.requirements}</p>}
-    {roles.length > 0 && <div className="team-role-list">{roles.map((role) => { const filled = post.acceptedRoleCounts?.[role.title] || 0; return <div className="team-role-item" key={role.title}><strong>{role.title}</strong><span>{Math.max(0, role.openings - filled)} of {role.openings} openings left</span>{role.requiredSkills && <small>Skills: {role.requiredSkills}</small>}{role.responsibilities && <small>Responsibilities: {role.responsibilities}</small>}</div> })}</div>}
-    <div className="skill-list">{skills.length ? skills.map((skill) => <span key={skill}>{skill}</span>) : <span>Open to collaboration</span>}</div><div className="team-post-meta"><span><UsersRound size={14} /> {post.members} / {post.size}</span><span>{post.deadline ? `Apply by ${new Date(post.deadline).toLocaleDateString()}` : 'No application deadline'}</span></div><div className="team-post-footer"><div className="team-leader"><span className="avatar small">{initials}</span><span><strong>{post.creatorName}</strong><small>Team creator</small></span></div><div className="post-actions">{isOwner ? <>{expired && !full && <button className="button secondary" onClick={() => onRepost(post.id)}>Repost for 7 days</button>}<button className="button ghost" onClick={() => onOpenConversation('TEAM', post.id)}>Chat</button><button className="button ghost" onClick={() => onManageRequests(post)}>Applications</button><button className="icon-button" aria-label="Edit team post" title="Edit team post" onClick={() => onEdit(post)}><Pencil size={14} /></button><button className="icon-danger" onClick={() => onDelete(post.id)} aria-label="Delete team post" title="Delete team post"><Trash2 size={15} /></button></> : isMember ? <button className="button ghost" onClick={() => onOpenConversation('TEAM', post.id)}>Open team chat</button> : requestPending ? <button className="button secondary" onClick={() => onWithdraw(post.id, ownRequest.id)}>Withdraw application</button> : ownRequest?.status === 'ACCEPTED' ? <span className="team-status">Selected · joined</span> : <button className="button primary" disabled={full || expired || !rolesAvailable} onClick={() => onJoin(post.id)}>{expired ? 'Applications closed' : full ? 'Team full' : !rolesAvailable ? 'Roles filled' : ownRequest?.status === 'REJECTED' ? 'Apply again' : 'Request to join'} <ArrowRight size={14} /></button>}</div></div></article> }
+  const creatorDisplayName = post.creatorName || post.creator?.name || 'Team Creator'
+  const initials = creatorDisplayName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
+  const creatorTargetId = post.creator?.id || post.creatorId
+
+  return (
+    <article className="team-post">
+      <div className="team-post-top">
+        <div className="team-post-type-wrapper">
+          <span className="type-pill">{post.type.replaceAll('_', ' ')}</span>
+          <span className="team-hiring-badge" title="Hiring issued by this student">
+            Hiring by{' '}
+            <button
+              className="profile-link-button inline-author"
+              type="button"
+              disabled={isOwner || !creatorTargetId}
+              onClick={() => onOpenProfile?.(creatorTargetId)}
+              title={isOwner ? 'Your team post' : `View ${creatorDisplayName}'s academic profile`}
+            >
+              {creatorDisplayName}{isOwner ? ' (You)' : ''}
+            </button>
+          </span>
+        </div>
+        <span className={`team-status ${full || expired ? 'full' : ''}`}>{expired ? 'Expired' : full ? 'Full' : 'Open'}</span>
+      </div>
+      <h2>{post.title}</h2>
+      <p className="team-description">{post.description}</p>
+      {post.requirements && <p className="team-description"><strong>Requirements:</strong> {post.requirements}</p>}
+      {roles.length > 0 && (
+        <div className="team-role-list">
+          {roles.map((role) => {
+            const filled = post.acceptedRoleCounts?.[role.title] || 0;
+            return (
+              <div className="team-role-item" key={role.title}>
+                <strong>{role.title}</strong>
+                <span>{Math.max(0, role.openings - filled)} of {role.openings} openings left</span>
+                {role.requiredSkills && <small>Skills: {role.requiredSkills}</small>}
+                {role.responsibilities && <small>Responsibilities: {role.responsibilities}</small>}
+              </div>
+            )
+          })}
+        </div>
+      )}
+      <div className="skill-list">
+        {skills.length ? skills.map((skill) => <span key={skill}>{skill}</span>) : <span>Open to collaboration</span>}
+      </div>
+      <div className="team-post-meta">
+        <span><UsersRound size={14} /> {post.members} / {post.size}</span>
+        <span>{post.deadline ? `Apply by ${new Date(post.deadline).toLocaleDateString()}` : 'No application deadline'}</span>
+      </div>
+      <div className="team-post-footer">
+        <div className="team-leader">
+          {post.creator?.avatarUrl ? (
+            <img src={post.creator.avatarUrl} alt={creatorDisplayName} className="avatar small" />
+          ) : (
+            <span className="avatar small">{initials}</span>
+          )}
+          <div>
+            <button
+              className="profile-link-button"
+              type="button"
+              disabled={isOwner || !creatorTargetId}
+              onClick={() => onOpenProfile?.(creatorTargetId)}
+              title={isOwner ? 'Your team post' : `View ${creatorDisplayName}'s academic profile`}
+            >
+              <strong>{creatorDisplayName}{isOwner ? ' (You)' : ''}</strong>
+            </button>
+            <small>Hiring Lead · Team Creator</small>
+          </div>
+        </div>
+        <div className="post-actions">
+          {isOwner ? (
+            <>
+              {expired && !full && <button className="button secondary" onClick={() => onRepost(post.id)}>Repost for 7 days</button>}
+              <button className="button ghost" onClick={() => onOpenConversation('TEAM', post.id)}>Chat</button>
+              <button className="button ghost" onClick={() => onManageRequests(post)}>Applications</button>
+              <button className="icon-button" aria-label="Edit team post" title="Edit team post" onClick={() => onEdit(post)}><Pencil size={14} /></button>
+              <button className="icon-danger" onClick={() => onDelete(post.id)} aria-label="Delete team post" title="Delete team post"><Trash2 size={15} /></button>
+            </>
+          ) : isMember ? (
+            <button className="button ghost" onClick={() => onOpenConversation('TEAM', post.id)}>Open team chat</button>
+          ) : requestPending ? (
+            <button className="button secondary" onClick={() => onWithdraw(post.id, ownRequest.id)}>Withdraw application</button>
+          ) : ownRequest?.status === 'ACCEPTED' ? (
+            <span className="team-status">Selected · joined</span>
+          ) : (
+            <>
+              {creatorTargetId && (
+                <button
+                  className="button ghost"
+                  type="button"
+                  onClick={() => onOpenProfile?.(creatorTargetId)}
+                  title={`View ${creatorDisplayName}'s academic profile`}
+                >
+                  View Recruiter
+                </button>
+              )}
+              <button className="button primary" disabled={full || expired || !rolesAvailable} onClick={() => onJoin(post.id)}>
+                {expired ? 'Applications closed' : full ? 'Team full' : !rolesAvailable ? 'Roles filled' : ownRequest?.status === 'REJECTED' ? 'Apply again' : 'Request to join'} <ArrowRight size={14} />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </article>
+  )
+}
 
 function TeamPostForm({ team, onSubmit, saving }) {
   const initialRoles = Array.isArray(team?.roles) && team.roles.length
@@ -2904,7 +3026,7 @@ function TeamApplicationForm({ post, profile, skills, onSubmit }) {
   }
 
   return <form className="modal-form" onSubmit={submit}>
-    <div className="modal-note"><strong>{post.title}</strong><p>{post.requirements || post.reqSkills || 'Review the project description and explain how you can contribute.'}</p></div>
+    <div className="modal-note"><strong>{post.title}</strong><p className="team-hiring-badge" style={{ marginTop: 4, display: 'inline-flex' }}>Hiring Lead: <strong>{post.creatorName || post.creator?.name || 'Team Creator'}</strong></p><p style={{ marginTop: 6 }}>{post.requirements || post.reqSkills || 'Review the project description and explain how you can contribute.'}</p></div>
     <div className="team-application-profile"><span className="avatar">{(profileInfo.fullName || profile.name || 'S').slice(0, 2).toUpperCase()}</span><div><strong>{profileInfo.fullName || profile.name || 'Your StudyOS profile'}</strong><small>Application is submitted using your signed-in account.</small></div></div>
     <label>Preferred role<select name="role" required defaultValue=""><option value="" disabled>Select a role</option>{(post.roles || []).map((role) => { const remaining = Math.max(0, role.openings - (post.acceptedRoleCounts?.[role.title] || 0)); return <option key={role.title} value={role.title} disabled={!remaining}>{role.title}{remaining ? ` · ${remaining} opening${remaining === 1 ? '' : 's'}` : ' · filled'}</option> })}</select></label>
     <div className="form-row">

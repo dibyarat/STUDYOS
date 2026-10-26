@@ -112,9 +112,9 @@ function parseApplication(body: Record<string, unknown>, roles: TeamRole[]): { r
 }
 
 const teamInclude = {
-  creator: { select: { id: true, name: true, avatarUrl: true } },
+  creator: { select: { id: true, name: true, avatarUrl: true, email: true } },
   memberships: {
-    include: { user: { select: { id: true, name: true, avatarUrl: true } } },
+    include: { user: { select: { id: true, name: true, avatarUrl: true, email: true } } },
     orderBy: { createdAt: 'asc' as const },
   },
 };
@@ -133,16 +133,28 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
-    res.json({ teamPosts: teamPosts.map((team) => ({
-      ...team,
-      deadline: effectiveDeadline(team),
-      isExpired: effectiveDeadline(team).getTime() <= Date.now(),
-      acceptedRoleCounts: ((team.memberships as any[]) || []).reduce((counts: Record<string, number>, membership: any) => {
-        if (membership.position) counts[membership.position] = (counts[membership.position] || 0) + 1;
-        return counts;
-      }, {}),
-      requests: team.requests.filter((request) => request.userId === req.user!.id).map(({ id, status }) => ({ id, status })),
-    })) });
+    res.json({ teamPosts: teamPosts.map((team) => {
+      const creatorName =
+        team.creator?.name ||
+        (team.creator as any)?.fullName ||
+        (team.creator as any)?.email?.split('@')[0] ||
+        (team.creatorId === req.user!.id ? 'You' : 'Student Leader');
+      return {
+        ...team,
+        creatorName,
+        creator: team.creator ? {
+          ...team.creator,
+          name: team.creator.name || creatorName,
+        } : { id: team.creatorId, name: creatorName, avatarUrl: null },
+        deadline: effectiveDeadline(team),
+        isExpired: effectiveDeadline(team).getTime() <= Date.now(),
+        acceptedRoleCounts: ((team.memberships as any[]) || []).reduce((counts: Record<string, number>, membership: any) => {
+          if (membership.position) counts[membership.position] = (counts[membership.position] || 0) + 1;
+          return counts;
+        }, {}),
+        requests: team.requests.filter((request) => request.userId === req.user!.id).map(({ id, status }) => ({ id, status })),
+      };
+    }) });
   } catch (error) {
     console.error('Failed to list team posts:', error);
     res.status(500).json({ error: 'Server error' });
@@ -153,15 +165,35 @@ router.get('/my-applications', requireAuth, async (req: AuthenticatedRequest, re
   try {
     const applications = await prisma.teamJoinRequest.findMany({
       where: { userId: req.user!.id },
-      include: { team: { select: { id: true, title: true, deadline: true, createdAt: true, roles: true } } },
+      include: {
+        team: {
+          select: {
+            id: true,
+            title: true,
+            deadline: true,
+            createdAt: true,
+            roles: true,
+            creatorId: true,
+            creator: { select: { id: true, name: true, avatarUrl: true, email: true } },
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
-    res.json({ applications: applications.map(({ recruiterNotes: _private, ...application }) => ({
-      ...application,
-      deadline: effectiveDeadline(application.team),
-      isExpired: effectiveDeadline(application.team).getTime() <= Date.now(),
-    })) });
+    res.json({ applications: applications.map(({ recruiterNotes: _private, ...application }) => {
+      const teamCreator = (application.team as any)?.creator;
+      const creatorName = teamCreator?.name || teamCreator?.email?.split('@')[0] || 'Team Creator';
+      return {
+        ...application,
+        team: {
+          ...application.team,
+          creatorName,
+        },
+        deadline: effectiveDeadline(application.team),
+        isExpired: effectiveDeadline(application.team).getTime() <= Date.now(),
+      };
+    }) });
   } catch (error) {
     console.error('Failed to list my team applications:', error);
     res.status(500).json({ error: 'Server error' });
@@ -181,8 +213,18 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
       if (membership.position) counts[membership.position] = (counts[membership.position] || 0) + 1;
       return counts;
     }, {});
+    const creatorName =
+      teamPost.creator?.name ||
+      (teamPost.creator as any)?.fullName ||
+      (teamPost.creator as any)?.email?.split('@')[0] ||
+      (teamPost.creatorId === req.user!.id ? 'You' : 'Student Leader');
     res.json({ teamPost: {
       ...teamPost,
+      creatorName,
+      creator: teamPost.creator ? {
+        ...teamPost.creator,
+        name: teamPost.creator.name || creatorName,
+      } : { id: teamPost.creatorId, name: creatorName, avatarUrl: null },
       deadline: effectiveDeadline(teamPost),
       isExpired: effectiveDeadline(teamPost).getTime() <= Date.now(),
       acceptedRoleCounts,
