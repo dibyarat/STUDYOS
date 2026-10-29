@@ -12,7 +12,9 @@ import {
   BookOpen,
   Bookmark,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
+  PanelLeftClose,
   Clock3,
   Download,
   FileText,
@@ -202,6 +204,23 @@ function App() {
 
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('studyos_sidebar_collapsed') === 'true'
+    } catch {
+      return false
+    }
+  })
+
+  const toggleSidebarCollapse = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem('studyos_sidebar_collapsed', String(next))
+      } catch {}
+      return next
+    })
+  }
   const [resendingVerification, setResendingVerification] = useState(false)
   const [verificationCooldown, setVerificationCooldown] = useState(0)
   const [search, setSearch] = useState('')
@@ -1906,13 +1925,37 @@ function App() {
     <div className="app-shell">
       <BrandBackdrop />
       {mobileOpen && <button className="mobile-nav-backdrop" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />}
-      <aside className={`sidebar ${mobileOpen ? 'is-open' : ''}`}>
-        <div className="brand"><span className="studyos-logo-mark"><img src={studyosMark} alt="" /></span><strong>Study<span>OS</span></strong><small>CSE</small></div>
+      <aside className={`sidebar ${mobileOpen ? 'is-open' : ''} ${isSidebarCollapsed ? 'is-collapsed' : ''}`}>
+        <div className="brand">
+          <span className="studyos-logo-mark"><img src={studyosMark} alt="" /></span>
+          <strong>Study<span>OS</span></strong>
+          <small>CSE</small>
+          <button
+            type="button"
+            className="sidebar-toggle-btn"
+            onClick={toggleSidebarCollapse}
+            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <PanelLeftClose size={18} />
+          </button>
+        </div>
+        {isSidebarCollapsed && (
+          <button
+            type="button"
+            className="sidebar-expand-toggle-btn"
+            onClick={toggleSidebarCollapse}
+            title="Expand sidebar"
+            aria-label="Expand sidebar"
+          >
+            <ChevronRight size={18} />
+          </button>
+        )}
         <div className="nav-label">OVERVIEW</div>
         <nav>{navItems.map(({ label, icon: Icon, key }) => {
           const badgeCount = key === 'teams' ? (teamPosts.length > 0 ? teamPosts.length : (teamPostCount > 0 ? teamPostCount : 0)) : 0
           return (
-            <button key={key} className={`nav-item ${activePage === key ? 'active' : ''}`} onClick={() => go(key)}>
+            <button key={key} className={`nav-item ${activePage === key ? 'active' : ''}`} onClick={() => go(key)} title={label}>
               <Icon size={18} />
               <span>{label}</span>
               {badgeCount > 0 && <i>{badgeCount > 99 ? '99+' : badgeCount}</i>}
@@ -1921,8 +1964,8 @@ function App() {
         })}</nav>
         <div className="nav-label account-label">MY ACCOUNT</div>
         <nav>
-          <button className={`nav-item ${activePage === 'account' ? 'active' : ''}`} onClick={() => go('account')}><Settings size={18} /><span>Account & Settings</span></button>
-          <button className="nav-item" onClick={signOut} style={{ color: '#ef4444' }}><LogOut size={18} /><span>Sign Out</span></button>
+          <button className={`nav-item ${activePage === 'account' ? 'active' : ''}`} onClick={() => go('account')} title="Account & Settings"><Settings size={18} /><span>Account & Settings</span></button>
+          <button className="nav-item" onClick={signOut} style={{ color: '#ef4444' }} title="Sign Out"><LogOut size={18} /><span>Sign Out</span></button>
         </nav>
         <div className="campusmate-card">
           <a href={import.meta.env.VITE_CAMPUSMATE_URL || 'https://campassist.me'} className="campassist-title-link" title="Open CampAssist">

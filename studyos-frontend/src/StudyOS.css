@@ -44,6 +44,7 @@ body {
   position: sticky;
   top: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 18px 14px 20px;
   background: var(--glass-surface, rgba(255, 255, 255, 0.82));
   backdrop-filter: blur(20px) saturate(160%);
@@ -53,6 +54,170 @@ body {
   flex-direction: column;
   z-index: 30;
   box-shadow: var(--card-shadow);
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s ease;
+  scrollbar-width: thin;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(113, 64, 216, 0.2);
+  border-radius: 4px;
+}
+
+.sidebar-toggle-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 0;
+  color: var(--color-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.sidebar-toggle-btn:hover {
+  background: rgba(113, 64, 216, 0.12);
+  color: var(--color-primary);
+}
+
+.sidebar-expand-toggle-btn {
+  width: 100%;
+  margin-top: 10px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-muted);
+  cursor: pointer;
+  padding: 10px 0;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.sidebar-expand-toggle-btn:hover {
+  background: rgba(113, 64, 216, 0.12);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.sidebar.is-collapsed {
+  width: 76px;
+  padding: 18px 8px 20px;
+}
+
+.sidebar.is-collapsed .brand {
+  padding: 0;
+  justify-content: center;
+}
+
+.sidebar.is-collapsed .brand strong,
+.sidebar.is-collapsed .brand small,
+.sidebar.is-collapsed .sidebar-toggle-btn {
+  display: none !important;
+}
+
+.sidebar.is-collapsed .brand .studyos-logo-mark {
+  margin: 0 auto;
+}
+
+.sidebar.is-collapsed .nav-label {
+  display: none !important;
+}
+
+.sidebar.is-collapsed .nav-item {
+  justify-content: center !important;
+  padding: 11px 0 !important;
+  position: relative;
+  gap: 0 !important;
+  border-radius: 14px;
+}
+
+.sidebar.is-collapsed .nav-item span {
+  display: none !important;
+}
+
+.sidebar.is-collapsed .nav-item i {
+  position: absolute;
+  top: 4px;
+  right: 10px;
+  min-width: 16px;
+  height: 16px;
+  font-size: 9px;
+  margin: 0;
+  padding: 0 3px;
+}
+
+.sidebar.is-collapsed .campusmate-card {
+  padding: 10px 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 14px !important;
+  text-align: center !important;
+}
+
+.sidebar.is-collapsed .campusmate-card p,
+.sidebar.is-collapsed .campassist-title-link span,
+.sidebar.is-collapsed .campassist-title-link .campassist-arrow {
+  display: none !important;
+}
+
+.sidebar.is-collapsed .campassist-logo-img {
+  width: 26px !important;
+  height: 26px !important;
+  margin: 0 auto !important;
+}
+
+@media (max-width: 900px) {
+  .sidebar-toggle-btn,
+  .sidebar-expand-toggle-btn {
+    display: none !important;
+  }
+  .sidebar.is-collapsed {
+    width: min(280px, calc(100vw - 56px)) !important;
+    padding: 18px 14px 20px !important;
+  }
+  .sidebar.is-collapsed .brand {
+    justify-content: flex-start !important;
+    padding: 0 10px !important;
+  }
+  .sidebar.is-collapsed .brand strong,
+  .sidebar.is-collapsed .brand small {
+    display: inline-block !important;
+  }
+  .sidebar.is-collapsed .nav-label {
+    display: block !important;
+  }
+  .sidebar.is-collapsed .nav-item {
+    justify-content: flex-start !important;
+    padding: 10px 14px !important;
+    gap: 12px !important;
+  }
+  .sidebar.is-collapsed .nav-item span {
+    display: inline !important;
+  }
+  .sidebar.is-collapsed .nav-item i {
+    position: static !important;
+    margin-left: auto !important;
+  }
+  .sidebar.is-collapsed .campusmate-card {
+    padding: 16px 14px !important;
+    display: block !important;
+    text-align: left !important;
+  }
+  .sidebar.is-collapsed .campusmate-card p,
+  .sidebar.is-collapsed .campassist-title-link span,
+  .sidebar.is-collapsed .campassist-title-link .campassist-arrow {
+    display: inline-flex !important;
+  }
 }
 
 .brand {
