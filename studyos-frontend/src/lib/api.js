@@ -49,14 +49,35 @@ export async function apiRequest(path, options = {}) {
     finalHeaders.Authorization = `Bearer ${token}`;
   }
 
+  let response;
+  let attempts = 0;
+  const maxAttempts = method === 'GET' ? 2 : 1;
+
   try {
-    const response = await fetch(fullUrl, {
-      method,
-      headers: finalHeaders,
-      body: body !== undefined ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
-      signal,
-    });
-    status = String(response.status);
+    while (attempts < maxAttempts) {
+      attempts++;
+      try {
+        response = await fetch(fullUrl, {
+          method,
+          headers: finalHeaders,
+          body: body !== undefined ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
+          signal,
+        });
+        status = String(response.status);
+
+        if ((response.status === 502 || response.status === 503 || response.status === 504) && attempts < maxAttempts) {
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
+        break;
+      } catch (err) {
+        if (attempts < maxAttempts && (!signal || !signal.aborted)) {
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
+        throw err;
+      }
+    }
 
     if (!response.ok) {
       const responseBody = await response.text();
