@@ -12,6 +12,7 @@ import {
   BookOpen,
   Bookmark,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   ChevronUp,
   PanelLeftClose,
@@ -1926,54 +1927,127 @@ function App() {
       <BrandBackdrop />
       {mobileOpen && <button className="mobile-nav-backdrop" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />}
       <aside className={`sidebar ${mobileOpen ? 'is-open' : ''} ${isSidebarCollapsed ? 'is-collapsed' : ''}`}>
-        <div className="brand">
-          <span className="studyos-logo-mark"><img src={studyosMark} alt="" /></span>
-          <strong>Study<span>OS</span></strong>
-          <small>CSE</small>
+        {/* Header - Clickable to collapse/expand (CampAssist style) */}
+        <div
+          className="brand"
+          onClick={toggleSidebarCollapse}
+          title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              toggleSidebarCollapse();
+            }
+          }}
+        >
+          <div className="brand-inner">
+            <span className="studyos-logo-mark">
+              <img src={studyosMark} alt="StudyOS" />
+            </span>
+            {!isSidebarCollapsed && (
+              <span className="brand-wordmark-title">
+                <span className="brand-wordmark-study">Study</span>
+                <span className="brand-wordmark-os">OS</span>
+                <small className="brand-badge-cse">CSE</small>
+              </span>
+            )}
+          </div>
           <button
             type="button"
-            className="sidebar-toggle-btn"
-            onClick={toggleSidebarCollapse}
-            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="sidebar-mobile-close-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMobileOpen(false);
+            }}
+            aria-label="Close navigation"
           >
-            <PanelLeftClose size={18} />
+            <ChevronLeft size={22} />
           </button>
         </div>
-        {isSidebarCollapsed && (
-          <button
-            type="button"
-            className="sidebar-expand-toggle-btn"
-            onClick={toggleSidebarCollapse}
-            title="Expand sidebar"
-            aria-label="Expand sidebar"
-          >
-            <ChevronRight size={18} />
-          </button>
-        )}
-        <div className="nav-label">OVERVIEW</div>
-        <nav>{navItems.map(({ label, icon: Icon, key }) => {
-          const badgeCount = key === 'teams' ? (teamPosts.length > 0 ? teamPosts.length : (teamPostCount > 0 ? teamPostCount : 0)) : 0
-          return (
-            <button key={key} className={`nav-item ${activePage === key ? 'active' : ''}`} onClick={() => go(key)} title={label}>
-              <Icon size={18} />
-              <span>{label}</span>
-              {badgeCount > 0 && <i>{badgeCount > 99 ? '99+' : badgeCount}</i>}
+
+        {/* Scrollable Navigation List */}
+        <div className="sidebar-nav-scroll">
+          {!isSidebarCollapsed && <div className="nav-label">OVERVIEW</div>}
+          <nav>
+            {navItems.map(({ label, icon: Icon, key }) => {
+              const badgeCount = key === 'teams' ? (teamPosts.length > 0 ? teamPosts.length : (teamPostCount > 0 ? teamPostCount : 0)) : 0;
+              const isActive = activePage === key;
+              return (
+                <button
+                  key={key}
+                  className={`nav-item ${isActive ? 'active' : ''}`}
+                  onClick={() => {
+                    go(key);
+                    setMobileOpen(false);
+                  }}
+                  title={label}
+                >
+                  <Icon size={18} className="shrink-0" />
+                  {!isSidebarCollapsed && <span className="nav-item-label">{label}</span>}
+                  {badgeCount > 0 && (
+                    <i className={isSidebarCollapsed ? 'badge-dot' : ''}>
+                      {isSidebarCollapsed ? '' : badgeCount > 99 ? '99+' : badgeCount}
+                    </i>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+
+          {!isSidebarCollapsed && <div className="nav-label account-label">MY ACCOUNT</div>}
+          <nav>
+            <button
+              className={`nav-item ${activePage === 'account' ? 'active' : ''}`}
+              onClick={() => {
+                go('account');
+                setMobileOpen(false);
+              }}
+              title="Account & Settings"
+            >
+              <Settings size={18} className="shrink-0" />
+              {!isSidebarCollapsed && <span className="nav-item-label">Account & Settings</span>}
             </button>
-          )
-        })}</nav>
-        <div className="nav-label account-label">MY ACCOUNT</div>
-        <nav>
-          <button className={`nav-item ${activePage === 'account' ? 'active' : ''}`} onClick={() => go('account')} title="Account & Settings"><Settings size={18} /><span>Account & Settings</span></button>
-          <button className="nav-item" onClick={signOut} style={{ color: '#ef4444' }} title="Sign Out"><LogOut size={18} /><span>Sign Out</span></button>
-        </nav>
-        <div className="campusmate-card">
-          <a href={import.meta.env.VITE_CAMPUSMATE_URL || 'https://campassist.me'} className="campassist-title-link" title="Open CampAssist">
-            <img src={campassistIcon} alt="CampAssist" className="campassist-logo-img" />
-            <span className="brand-wordmark">CampAssist</span>
-            <ArrowRight size={13} className="campassist-arrow" />
-          </a>
-          <p>Access attendance, timetable<br />and other campus features.</p>
+            <button
+              className="nav-item nav-item-signout"
+              onClick={signOut}
+              title="Sign Out"
+            >
+              <LogOut size={18} className="shrink-0" />
+              {!isSidebarCollapsed && <span className="nav-item-label">Sign Out</span>}
+            </button>
+          </nav>
+        </div>
+
+        {/* Footer (CampAssist style) */}
+        <div className="sidebar-footer">
+          {isSidebarCollapsed && (
+            <button
+              type="button"
+              className="sidebar-expand-toggle-btn"
+              onClick={() => setIsSidebarCollapsed(false)}
+              title="Expand sidebar"
+              aria-label="Expand sidebar"
+            >
+              <ChevronRight size={22} />
+            </button>
+          )}
+          <div className="campusmate-card">
+            <a
+              href={import.meta.env.VITE_CAMPUSMATE_URL || 'https://campassist.me'}
+              className="campassist-title-link"
+              title="Open CampAssist"
+            >
+              <img src={campassistIcon} alt="CampAssist" className="campassist-logo-img" />
+              {!isSidebarCollapsed && (
+                <>
+                  <span className="brand-wordmark">CampAssist</span>
+                  <ArrowRight size={13} className="campassist-arrow" />
+                </>
+              )}
+            </a>
+            {!isSidebarCollapsed && <p>Access attendance, timetable<br />and other campus features.</p>}
+          </div>
         </div>
       </aside>
 
@@ -2004,7 +2078,8 @@ function App() {
             </div>
           </div>
         </header>
-        <div className="page-body">
+        <div className="main-scroll-view">
+          <div className="page-body">
           {user && user.emailVerified === false && (
             <div className="email-verification-banner" role="status">
               <span>Your email address is unverified. Verify your email to ensure account recovery and security.</span>
@@ -2046,6 +2121,7 @@ function App() {
               onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }}
             />
           )}
+        </div>
         </div>
       </main>
 
