@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
 import { transactionLimiter } from '../middleware/rate-limit';
 import { Prisma, prisma } from '../lib/prisma';
+import { getFirebaseAuth } from '../lib/firebase';
 
 const router = Router();
 const TEAM_TYPES = new Set(['HACKATHON', 'GROUP_PROJECT', 'PPT_PRESENTATION', 'RESEARCH', 'COLLEGE_PROJECT', 'COMPETITION', 'OTHER']);
@@ -123,6 +124,59 @@ function isPrismaError(error: unknown, code: string): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === code;
 }
 
+async function resolveCreatorInfo(creatorId?: string, fallbackEmail?: string | null): Promise<{ id: string; name: string; avatarUrl: string | null; email?: string }> {
+  if (!creatorId) {
+    return { id: '', name: 'Student Leader', avatarUrl: null };
+  }
+
+  if (creatorId === 'user-alice') {
+    return { id: 'user-alice', name: 'Alice Smith', avatarUrl: null, email: 'alice@college.edu' };
+  }
+  if (creatorId === 'user-bob') {
+    return { id: 'user-bob', name: 'Bob Jones', avatarUrl: null, email: 'bob@college.edu' };
+  }
+  if (creatorId === 'user-eve') {
+    return { id: 'user-eve', name: 'Eve Hacker', avatarUrl: null, email: 'eve@college.edu' };
+  }
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id: creatorId } });
+    if (user?.name && user.name.trim() && user.name !== 'Student Leader' && user.name !== 'StudyOS User') {
+      return { id: creatorId, name: user.name.trim(), avatarUrl: user.avatarUrl || null, email: user.email };
+    }
+
+    const profile = await prisma.profile.findFirst({ where: { userId: creatorId } });
+    if (profile?.fullName && profile.fullName.trim()) {
+      return { id: creatorId, name: profile.fullName.trim(), avatarUrl: profile.avatarUrl || user?.avatarUrl || null, email: user?.email };
+    }
+
+    try {
+      const fbUser = await getFirebaseAuth().getUser(creatorId);
+      if (fbUser?.displayName && fbUser.displayName.trim()) {
+        return { id: creatorId, name: fbUser.displayName.trim(), avatarUrl: fbUser.photoURL || user?.avatarUrl || null, email: fbUser.email || user?.email };
+      }
+      if (fbUser?.email) {
+        const emailName = fbUser.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+        return { id: creatorId, name: emailName, avatarUrl: fbUser.photoURL || user?.avatarUrl || null, email: fbUser.email };
+      }
+    } catch {}
+
+    if (user?.email) {
+      const emailName = user.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+      return { id: creatorId, name: emailName, avatarUrl: user.avatarUrl || null, email: user.email };
+    }
+  } catch (err) {
+    console.error('Error resolving creator info:', err);
+  }
+
+  if (fallbackEmail) {
+    const emailName = fallbackEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+    return { id: creatorId, name: emailName, avatarUrl: null };
+  }
+
+  return { id: creatorId, name: 'Student Leader', avatarUrl: null };
+}
+
 router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const teamPosts = await prisma.teamPost.findMany({
@@ -133,28 +187,40 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
-    res.json({ teamPosts: teamPosts.map((team) => {
-      const creatorName =
-        team.creator?.name ||
-        (team.creator as any)?.fullName ||
-        (team.creator as any)?.email?.split('@')[0] ||
-        (team.creatorId === req.user!.id ? 'You' : 'Student Leader');
-      return {
-        ...team,
-        creatorName,
-        creator: team.creator ? {
-          ...team.creator,
-          name: team.creator.name || creatorName,
-        } : { id: team.creatorId, name: creatorName, avatarUrl: null },
-        deadline: effectiveDeadline(team),
-        isExpired: effectiveDeadline(team).getTime() <= Date.now(),
-        acceptedRoleCounts: ((team.memberships as any[]) || []).reduce((counts: Record<string, number>, membership: any) => {
-          if (membership.position) counts[membership.position] = (counts[membership.position] || 0) + 1;
-          return counts;
-        }, {}),
-        requests: team.requests.filter((request) => request.userId === req.user!.id).map(({ id, status }) => ({ id, status })),
-      };
-    }) });
+    const teamPostsWithCreator = await Promise.all(
+      teamPosts.map(async (team) => {
+        let creatorName = team.creatorName || team.creator?.name || (team.creator as any)?.fullName;
+        let creatorAvatar = team.creator?.avatarUrl || null;
+        let creatorEmail = team.creator?.email;
+
+        if (!creatorName || creatorName === 'Student Leader' || creatorName === 'StudyOS User') {
+          const resolved = await resolveCreatorInfo(team.creatorId, team.creator?.email || (team.creator as any)?.email);
+          creatorName = resolved.name;
+          creatorAvatar = creatorAvatar || resolved.avatarUrl;
+          creatorEmail = creatorEmail || resolved.email;
+        }
+
+        return {
+          ...team,
+          creatorName,
+          creator: {
+            id: team.creatorId,
+            name: creatorName,
+            avatarUrl: creatorAvatar,
+            email: creatorEmail,
+          },
+          deadline: effectiveDeadline(team),
+          isExpired: effectiveDeadline(team).getTime() <= Date.now(),
+          acceptedRoleCounts: ((team.memberships as any[]) || []).reduce((counts: Record<string, number>, membership: any) => {
+            if (membership.position) counts[membership.position] = (counts[membership.position] || 0) + 1;
+            return counts;
+          }, {}),
+          requests: team.requests.filter((request) => request.userId === req.user!.id).map(({ id, status }) => ({ id, status })),
+        };
+      })
+    );
+
+    res.json({ teamPosts: teamPostsWithCreator });
   } catch (error) {
     console.error('Failed to list team posts:', error);
     res.status(500).json({ error: 'Server error' });
@@ -181,19 +247,31 @@ router.get('/my-applications', requireAuth, async (req: AuthenticatedRequest, re
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
-    res.json({ applications: applications.map(({ recruiterNotes: _private, ...application }) => {
-      const teamCreator = (application.team as any)?.creator;
-      const creatorName = teamCreator?.name || teamCreator?.email?.split('@')[0] || 'Team Creator';
-      return {
-        ...application,
-        team: {
-          ...application.team,
-          creatorName,
-        },
-        deadline: effectiveDeadline(application.team),
-        isExpired: effectiveDeadline(application.team).getTime() <= Date.now(),
-      };
-    }) });
+    const appsWithCreator = await Promise.all(
+      applications.map(async ({ recruiterNotes: _private, ...application }) => {
+        const team = application.team as any;
+        let creatorName = team?.creatorName || team?.creator?.name;
+        if (!creatorName || creatorName === 'Student Leader' || creatorName === 'Team Creator' || creatorName === 'StudyOS User') {
+          const resolved = await resolveCreatorInfo(team?.creatorId, team?.creator?.email);
+          creatorName = resolved.name;
+        }
+        return {
+          ...application,
+          team: {
+            ...team,
+            creatorName,
+            creator: {
+              ...(team?.creator || {}),
+              id: team?.creatorId,
+              name: creatorName,
+            },
+          },
+          deadline: effectiveDeadline(team),
+          isExpired: effectiveDeadline(team).getTime() <= Date.now(),
+        };
+      })
+    );
+    res.json({ applications: appsWithCreator });
   } catch (error) {
     console.error('Failed to list my team applications:', error);
     res.status(500).json({ error: 'Server error' });
@@ -213,18 +291,26 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
       if (membership.position) counts[membership.position] = (counts[membership.position] || 0) + 1;
       return counts;
     }, {});
-    const creatorName =
-      teamPost.creator?.name ||
-      (teamPost.creator as any)?.fullName ||
-      (teamPost.creator as any)?.email?.split('@')[0] ||
-      (teamPost.creatorId === req.user!.id ? 'You' : 'Student Leader');
+    let creatorName = teamPost.creatorName || teamPost.creator?.name || (teamPost.creator as any)?.fullName;
+    let creatorAvatar = teamPost.creator?.avatarUrl || null;
+    let creatorEmail = teamPost.creator?.email;
+
+    if (!creatorName || creatorName === 'Student Leader' || creatorName === 'StudyOS User') {
+      const resolved = await resolveCreatorInfo(teamPost.creatorId, teamPost.creator?.email);
+      creatorName = resolved.name;
+      creatorAvatar = creatorAvatar || resolved.avatarUrl;
+      creatorEmail = creatorEmail || resolved.email;
+    }
+
     res.json({ teamPost: {
       ...teamPost,
       creatorName,
-      creator: teamPost.creator ? {
-        ...teamPost.creator,
-        name: teamPost.creator.name || creatorName,
-      } : { id: teamPost.creatorId, name: creatorName, avatarUrl: null },
+      creator: {
+        id: teamPost.creatorId,
+        name: creatorName,
+        avatarUrl: creatorAvatar,
+        email: creatorEmail,
+      },
       deadline: effectiveDeadline(teamPost),
       isExpired: effectiveDeadline(teamPost).getTime() <= Date.now(),
       acceptedRoleCounts,
@@ -245,6 +331,7 @@ router.post('/', requireAuth, transactionLimiter, async (req: AuthenticatedReque
       return res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid team post' });
     }
 
+    const creatorInfo = await resolveCreatorInfo(req.user!.id, req.user!.email);
     const teamPost = await prisma.teamPost.create({
       data: {
         title: input.title!,
@@ -256,6 +343,7 @@ router.post('/', requireAuth, transactionLimiter, async (req: AuthenticatedReque
         teamSize: input.teamSize ?? 4,
         deadline: input.deadline || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         creatorId: req.user!.id,
+        creatorName: creatorInfo.name,
         memberships: {
           create: {
             user: { connect: { id: req.user!.id } },

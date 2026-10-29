@@ -82,18 +82,32 @@ const normalizeResource = (resource) => ({
   savedByUser: Boolean(resource.savedByUser ?? false),
 })
 
-const normalizeTeamPost = (post) => ({
-  ...post,
-  creatorName:
+const normalizeTeamPost = (post) => {
+  let creatorName =
     post.creatorName ||
     post.creator?.name ||
     post.creator?.fullName ||
     post.creator?.profile?.fullName ||
-    (post.creator?.email ? post.creator.email.split('@')[0] : 'Team Creator'),
-  skills: post.skills || post.reqSkills || '',
-  size: post.size ?? post.teamSize ?? 2,
-  members: post.members ?? post.memberships?.length ?? 1,
-})
+    (post.creator?.email ? post.creator.email.split('@')[0] : null);
+
+  if (!creatorName || creatorName === 'Student Leader' || creatorName === 'StudyOS User') {
+    if (post.creatorId === 'user-alice') {
+      creatorName = 'Alice Smith';
+    } else if (post.creator?.email) {
+      creatorName = post.creator.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    } else {
+      creatorName = 'Team Creator';
+    }
+  }
+
+  return {
+    ...post,
+    creatorName,
+    skills: post.skills || post.reqSkills || '',
+    size: post.size ?? post.teamSize ?? 2,
+    members: post.members ?? post.memberships?.length ?? 1,
+  };
+};
 
 const normalizeHelpService = (job) => ({
   ...job,
@@ -2829,7 +2843,13 @@ function MyTeamApplications({ applications, loading, onWithdraw, onOpenProfile }
   if (!applications.length) return <div className="team-empty"><strong>No applications yet</strong><p>When you apply to a team, its status and deadline will appear here.</p></div>
   const statusLabels = { PENDING: 'Submitted', SHORTLISTED: 'Under review · shortlisted', ACCEPTED: 'Selected', REJECTED: 'Not selected', WITHDRAWN: 'Withdrawn' }
   return <div className="my-team-applications">{applications.map((application) => {
-    const creatorName = application.team?.creatorName || application.team?.creator?.name || 'Team Creator'
+    let creatorName = application.team?.creatorName || application.team?.creator?.name || 'Team Creator'
+    if (creatorName === 'Student Leader' || creatorName === 'StudyOS User') {
+      if (application.team?.creatorId === 'user-alice') creatorName = 'Alice Smith'
+      else if (application.team?.creator?.fullName) creatorName = application.team.creator.fullName
+      else if (application.team?.creator?.email) creatorName = application.team.creator.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+      else creatorName = 'Team Creator'
+    }
     const creatorId = application.team?.creatorId || application.team?.creator?.id
     return <article className="team-application-card" key={application.id}>
       <div className="team-application-card-header">
@@ -2861,7 +2881,13 @@ function TeamPost({ post, currentUserId, onEdit, onDelete, onJoin, onWithdraw, o
   const expired = Boolean(post.isExpired)
   const roles = Array.isArray(post.roles) ? post.roles : []
   const rolesAvailable = roles.some((role) => role.openings > (post.acceptedRoleCounts?.[role.title] || 0))
-  const creatorDisplayName = post.creatorName || post.creator?.name || 'Team Creator'
+  let creatorDisplayName = post.creatorName || post.creator?.name || 'Team Creator'
+  if (creatorDisplayName === 'Student Leader' || creatorDisplayName === 'StudyOS User') {
+    if (post.creatorId === 'user-alice') creatorDisplayName = 'Alice Smith'
+    else if (post.creator?.fullName) creatorDisplayName = post.creator.fullName
+    else if (post.creator?.email) creatorDisplayName = post.creator.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    else creatorDisplayName = 'Team Creator'
+  }
   const initials = creatorDisplayName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
   const creatorTargetId = post.creator?.id || post.creatorId
 

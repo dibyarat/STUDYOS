@@ -111,7 +111,8 @@ test('StudyOS Comprehensive Authorization Boundaries Suite (Teams, Help, Message
   t.after(async () => {
     await new Promise((resolve) => server.close(resolve));
     try {
-      await prisma.user.delete({ where: { id: 'user-alice' } }).catch(() => {});
+      if (teamId) await prisma.teamPost.delete({ where: { id: teamId } }).catch(() => {});
+      if (helpServiceId) await prisma.helpService.delete({ where: { id: helpServiceId } }).catch(() => {});
       await prisma.user.delete({ where: { id: 'user-bob' } }).catch(() => {});
       await prisma.user.delete({ where: { id: 'user-eve' } }).catch(() => {});
     } catch {}
