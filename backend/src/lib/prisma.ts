@@ -648,7 +648,7 @@ export class FirestoreCollection<T extends Record<string, any> = Record<string, 
       }
     }
 
-    if (this.collectionName === 'team_memberships') {
+    if (this.collectionName === 'team_memberships' || this.collectionName === 'team_join_requests') {
       if (docData.teamId && !docData.teamPostId) docData.teamPostId = docData.teamId;
       if (docData.teamPostId && !docData.teamId) docData.teamId = docData.teamPostId;
     }
@@ -1098,9 +1098,20 @@ export class FirestoreCollection<T extends Record<string, any> = Record<string, 
     }
 
     if (include.requests) {
-      const requests = await prisma.teamJoinRequest.findMany({
-        where: { OR: [{ teamId: item.id }, { teamPostId: item.id }], ...include.requests.where },
-      });
+      let requests: any[] = [];
+      try {
+        requests = await prisma.teamJoinRequest.findMany({
+          where: { OR: [{ teamId: item.id }, { teamPostId: item.id }] },
+        });
+      } catch (err: any) {
+        console.warn(`[prisma] Failed to fetch requests for team ${item.id}:`, err?.message);
+        requests = [];
+      }
+
+      if (include.requests.where) {
+        requests = requests.filter((r: any) => matchesWhere(r, include.requests.where));
+      }
+
       resolved.requests = requests.map((r: any) => applySelect(r, include.requests.select));
     }
 

@@ -104,7 +104,7 @@ app.use((_req, res, next) => {
 });
 
 // Health check endpoints mounted early to ensure uptime checks bypass rate limiting and body parsing
-app.get(['/health', '/api/health'], (_req, res) => {
+app.get(['/health', '/api/health', '/api/v1/studyos/health'], (_req, res) => {
   res.json({ success: true, status: 'ok' });
 });
 

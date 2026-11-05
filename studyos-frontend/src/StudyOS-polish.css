@@ -989,6 +989,54 @@ select {
   color: var(--color-muted) !important;
 }
 
+.team-intro strong {
+  color: var(--color-text) !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+}
+
+.team-intro p {
+  color: var(--color-muted) !important;
+  font-size: 12px !important;
+}
+
+.team-intro-icon {
+  background: rgba(99, 102, 241, 0.12) !important;
+  border: 1px solid var(--color-border) !important;
+  color: var(--color-primary, #6366f1) !important;
+  box-shadow: none !important;
+}
+
+.team-toolbar strong {
+  color: var(--color-text) !important;
+}
+
+.team-toolbar span {
+  color: var(--color-muted) !important;
+}
+
+.team-empty {
+  border: 1px dashed var(--color-border) !important;
+  background: var(--glass-surface) !important;
+  color: var(--color-muted) !important;
+  border-radius: 20px !important;
+  box-shadow: var(--card-shadow) !important;
+}
+
+.team-empty strong {
+  color: var(--color-text) !important;
+  font-size: 15px !important;
+}
+
+.team-empty p {
+  color: var(--color-muted) !important;
+  font-size: 12px !important;
+}
+
+.team-empty svg {
+  color: var(--color-primary, #6366f1) !important;
+}
+
 .team-post-meta,
 .team-post-footer,
 .panel-heading,

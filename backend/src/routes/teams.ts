@@ -189,34 +189,60 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
     });
     const teamPostsWithCreator = await Promise.all(
       teamPosts.map(async (team) => {
-        let creatorName = team.creatorName || team.creator?.name || (team.creator as any)?.fullName;
-        let creatorAvatar = team.creator?.avatarUrl || null;
-        let creatorEmail = team.creator?.email;
+        try {
+          let creatorName = team.creatorName || team.creator?.name || (team.creator as any)?.fullName;
+          let creatorAvatar = team.creator?.avatarUrl || null;
+          let creatorEmail = team.creator?.email;
 
-        if (!creatorName || creatorName === 'Student Leader' || creatorName === 'StudyOS User') {
-          const resolved = await resolveCreatorInfo(team.creatorId, team.creator?.email || (team.creator as any)?.email);
-          creatorName = resolved.name;
-          creatorAvatar = creatorAvatar || resolved.avatarUrl;
-          creatorEmail = creatorEmail || resolved.email;
+          if (!creatorName || creatorName === 'Student Leader' || creatorName === 'StudyOS User') {
+            try {
+              const resolved = await resolveCreatorInfo(team.creatorId, team.creator?.email || (team.creator as any)?.email);
+              creatorName = resolved.name;
+              creatorAvatar = creatorAvatar || resolved.avatarUrl;
+              creatorEmail = creatorEmail || resolved.email;
+            } catch (resolveErr) {
+              console.warn(`[teams] resolveCreatorInfo failed for creator ${team.creatorId}:`, resolveErr);
+            }
+          }
+
+          const rawRequests = Array.isArray(team.requests) ? team.requests : [];
+          const userRequests = rawRequests
+            .filter((request: any) => request && request.userId === req.user!.id)
+            .map(({ id, status }: any) => ({ id, status }));
+
+          return {
+            ...team,
+            creatorName: creatorName || 'Student Leader',
+            creator: {
+              id: team.creatorId,
+              name: creatorName || 'Student Leader',
+              avatarUrl: creatorAvatar,
+              email: creatorEmail,
+            },
+            deadline: effectiveDeadline(team),
+            isExpired: effectiveDeadline(team).getTime() <= Date.now(),
+            acceptedRoleCounts: ((team.memberships as any[]) || []).reduce((counts: Record<string, number>, membership: any) => {
+              if (membership && membership.position) counts[membership.position] = (counts[membership.position] || 0) + 1;
+              return counts;
+            }, {}),
+            requests: userRequests,
+          };
+        } catch (itemErr) {
+          console.error(`[teams] Error processing team post ${team?.id}:`, itemErr);
+          return {
+            ...team,
+            creatorName: team.creatorName || 'Student Leader',
+            creator: {
+              id: team.creatorId,
+              name: team.creatorName || 'Student Leader',
+              avatarUrl: null,
+            },
+            deadline: effectiveDeadline(team),
+            isExpired: false,
+            acceptedRoleCounts: {},
+            requests: [],
+          };
         }
-
-        return {
-          ...team,
-          creatorName,
-          creator: {
-            id: team.creatorId,
-            name: creatorName,
-            avatarUrl: creatorAvatar,
-            email: creatorEmail,
-          },
-          deadline: effectiveDeadline(team),
-          isExpired: effectiveDeadline(team).getTime() <= Date.now(),
-          acceptedRoleCounts: ((team.memberships as any[]) || []).reduce((counts: Record<string, number>, membership: any) => {
-            if (membership.position) counts[membership.position] = (counts[membership.position] || 0) + 1;
-            return counts;
-          }, {}),
-          requests: team.requests.filter((request) => request.userId === req.user!.id).map(({ id, status }) => ({ id, status })),
-        };
       })
     );
 
@@ -314,7 +340,9 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
       deadline: effectiveDeadline(teamPost),
       isExpired: effectiveDeadline(teamPost).getTime() <= Date.now(),
       acceptedRoleCounts,
-      requests: teamPost.requests.filter((request) => request.userId === req.user!.id).map(({ id, status }) => ({ id, status })),
+      requests: (Array.isArray(teamPost.requests) ? teamPost.requests : [])
+        .filter((request: any) => request && request.userId === req.user!.id)
+        .map(({ id, status }: any) => ({ id, status })),
     } });
   } catch (error) {
     console.error('Failed to fetch team post:', error);
