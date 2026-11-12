@@ -300,6 +300,7 @@ app.post('/api/v1/studyos/sync-user', sensitiveLimiter, requireAuth, async (req,
         email: authUser.email || `${authUser.id}@studyos.local`,
         name: safeName || authUser.email?.split('@')[0] || 'StudyOS User',
         avatarUrl: avatarUrl || '',
+        role: 'STUDENT',
       },
     });
 
