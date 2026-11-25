@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { prisma } from './lib/prisma';
+import { computeUserContribution } from './lib/contributions';
 
 declare global {
   namespace Express {
@@ -330,7 +331,8 @@ app.get('/api/v1/studyos/profile/:userId', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json({ user });
+    const communityContribution = await computeUserContribution(userId).catch(() => null);
+    res.json({ user: { ...user, communityContribution } });
   } catch (error) {
     console.error('profile fetch failed:', error);
     res.status(500).json({ error: 'Server error' });
@@ -370,10 +372,13 @@ app.get('/api/v1/studyos/public-profile/:userId', requireAuth, async (req, res) 
         }
       : null;
 
+    const communityContribution = await computeUserContribution(userId).catch(() => null);
+
     res.json({
       user: {
         ...user,
         academicIdentity,
+        communityContribution,
         skills: user.skills.map(({ skill, proficiency, experience, portfolioUrl }) => ({
           ...skill,
           proficiency,

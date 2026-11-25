@@ -1289,3 +1289,282 @@ select option {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+
+/* ==========================================================================
+   1. UNIFIED SOLID BLUE BUTTON SYSTEM
+   ========================================================================== */
+.button.primary,
+.auth-form .button.primary,
+.modal-form .button.primary,
+.tab-button.active,
+.day-pill-btn.active,
+.target-pill-btn.active {
+  background: #2563EB !important;
+  color: #FFFFFF !important;
+  border: 1px solid #2563EB !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.32) !important;
+  transition: background-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease !important;
+}
+
+.button.primary:hover:not(:disabled),
+.auth-form .button.primary:hover:not(:disabled),
+.modal-form .button.primary:hover:not(:disabled),
+.tab-button.active:hover,
+.day-pill-btn.active:hover,
+.target-pill-btn.active:hover {
+  background: #1D4ED8 !important;
+  border-color: #1D4ED8 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.42) !important;
+  opacity: 1 !important;
+}
+
+.button.primary:active:not(:disabled),
+.auth-form .button.primary:active:not(:disabled),
+.modal-form .button.primary:active:not(:disabled) {
+  background: #1E40AF !important;
+  border-color: #1E40AF !important;
+  transform: translateY(0);
+}
+
+.button.secondary,
+.button.ghost,
+.filter-button {
+  background: #FFFFFF !important;
+  color: #2563EB !important;
+  border: 1px solid rgba(37, 99, 235, 0.35) !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04) !important;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease !important;
+}
+
+.button.secondary:hover:not(:disabled),
+.button.ghost:hover:not(:disabled),
+.filter-button:hover:not(:disabled) {
+  background: #EFF6FF !important;
+  border-color: #2563EB !important;
+  color: #1D4ED8 !important;
+  transform: translateY(-1px);
+}
+
+.button.secondary:active:not(:disabled),
+.button.ghost:active:not(:disabled),
+.filter-button:active:not(:disabled) {
+  background: #DBEAFE !important;
+  transform: translateY(0);
+}
+
+@media (prefers-color-scheme: dark) {
+  .button.secondary,
+  .button.ghost,
+  .filter-button {
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #93C5FD !important;
+    border: 1px solid rgba(59, 130, 246, 0.42) !important;
+    box-shadow: none !important;
+  }
+
+  .button.secondary:hover:not(:disabled),
+  .button.ghost:hover:not(:disabled),
+  .filter-button:hover:not(:disabled) {
+    background: rgba(37, 99, 235, 0.16) !important;
+    border-color: #60A5FA !important;
+    color: #FFFFFF !important;
+  }
+
+  .button.secondary:active:not(:disabled),
+  .button.ghost:active:not(:disabled),
+  .filter-button:active:not(:disabled) {
+    background: rgba(37, 99, 235, 0.26) !important;
+  }
+}
+
+.nav-item.active {
+  background: #2563EB !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.32) !important;
+}
+
+/* ==========================================================================
+   2. DASHBOARD INITIAL ENTRANCE ANIMATIONS
+   ========================================================================== */
+@keyframes sosEnterTop {
+  from { opacity: 0; transform: translateY(-16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sosEnterLeft {
+  from { opacity: 0; transform: translateX(-18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes sosEnterRight {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes sosEnterUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sosEnterFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.dash-anim-top {
+  animation: sosEnterTop 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.dash-anim-left {
+  animation: sosEnterLeft 520ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both;
+}
+
+.dash-anim-right {
+  animation: sosEnterRight 520ms cubic-bezier(0.16, 1, 0.3, 1) 160ms both;
+}
+
+.dash-anim-up {
+  animation: sosEnterUp 520ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
+}
+
+.dash-anim-fade {
+  animation: sosEnterFade 420ms ease both;
+}
+
+.dash-anim-stagger-0 { animation: sosEnterUp 460ms cubic-bezier(0.16, 1, 0.3, 1) 40ms both; }
+.dash-anim-stagger-1 { animation: sosEnterUp 460ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both; }
+.dash-anim-stagger-2 { animation: sosEnterUp 460ms cubic-bezier(0.16, 1, 0.3, 1) 160ms both; }
+.dash-anim-stagger-3 { animation: sosEnterUp 460ms cubic-bezier(0.16, 1, 0.3, 1) 220ms both; }
+.dash-anim-stagger-4 { animation: sosEnterUp 460ms cubic-bezier(0.16, 1, 0.3, 1) 280ms both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-anim-top,
+  .dash-anim-left,
+  .dash-anim-right,
+  .dash-anim-up,
+  .dash-anim-fade,
+  .dash-anim-stagger-0,
+  .dash-anim-stagger-1,
+  .dash-anim-stagger-2,
+  .dash-anim-stagger-3,
+  .dash-anim-stagger-4 {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* ==========================================================================
+   3. COMMUNITY CONTRIBUTION PROFILE CARD
+   ========================================================================== */
+.community-contribution-card {
+  border: 1px solid rgba(37, 99, 235, 0.25) !important;
+  border-radius: 20px !important;
+  padding: 20px !important;
+  background: var(--glass-surface) !important;
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: var(--card-shadow);
+  margin-top: 16px;
+}
+
+.contribution-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.contribution-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.contribution-icon-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563EB;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.contribution-title-wrap h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.contribution-title-wrap p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.contribution-score-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  background: #2563EB;
+  color: #FFFFFF;
+  font-weight: 700;
+}
+
+.contribution-score-pill strong {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.contribution-score-pill span {
+  font-size: 11px;
+  opacity: 0.9;
+}
+
+.contribution-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.contribution-metric-item {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.contribution-metric-item span {
+  font-size: 11px;
+  color: var(--color-muted);
+  font-weight: 500;
+}
+
+.contribution-metric-item strong {
+  font-size: 16px;
+  font-weight: 700;
+  color: #2563EB;
+}
+
+@media (prefers-color-scheme: dark) {
+  .contribution-icon-badge {
+    background: rgba(59, 130, 246, 0.18);
+    color: #60A5FA;
+  }
+
+  .contribution-metric-item strong {
+    color: #60A5FA;
+  }
+}

@@ -7,6 +7,7 @@ import { trackPageView, trackEvent } from './lib/analytics.js'
 import {
   AlertCircle,
   ArrowRight,
+  Award,
   Bell,
   BriefcaseBusiness,
   BookOpen,
@@ -224,6 +225,28 @@ function App() {
   }
   const [resendingVerification, setResendingVerification] = useState(false)
   const [verificationCooldown, setVerificationCooldown] = useState(0)
+  const [dashIntroActive, setDashIntroActive] = useState(false)
+  const dashIntroPlayedRef = useRef(false)
+
+  useEffect(() => {
+    if (!user?.id || activePage !== 'dashboard' || dashIntroPlayedRef.current) return
+    const storageKey = `studyos_dash_intro_${user.id}`
+    let alreadyPlayed = false
+    try {
+      alreadyPlayed = sessionStorage.getItem(storageKey) === '1'
+    } catch {}
+    if (!alreadyPlayed) {
+      setDashIntroActive(true)
+      dashIntroPlayedRef.current = true
+      try {
+        sessionStorage.setItem(storageKey, '1')
+      } catch {}
+      const timer = setTimeout(() => setDashIntroActive(false), 900)
+      return () => clearTimeout(timer)
+    } else {
+      dashIntroPlayedRef.current = true
+    }
+  }, [user?.id, activePage])
   const [search, setSearch] = useState('')
   const [vaultSearch, setVaultSearch] = useState('')
   const [searchResults, setSearchResults] = useState(null)
@@ -2052,7 +2075,7 @@ function App() {
       </aside>
 
       <main className="main-content">
-        <header className="topbar">
+        <header className={`topbar ${dashIntroActive ? "dash-anim-fade" : ""}`}>
           <button className="mobile-menu" onClick={() => setMobileOpen((open) => !open)} aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={mobileOpen}><Menu size={20} /></button>
           <div className="mobile-brand"><span className="studyos-logo-mark"><img src={studyosMark} alt="" /></span><strong>Study<span>OS</span></strong></div>
           <div className="search-wrap">
@@ -2096,7 +2119,7 @@ function App() {
           {initialLoading && <div className="data-load-loading" role="status">Loading your StudyOS workspace…</div>}
           {notificationsError && <div className={`data-load-warning ${sessionExpired ? 'session-expired' : ''}`} role="alert">{notificationsError}{sessionExpired ? <button className="button secondary" onClick={signOut}>Sign out</button> : <button className="button ghost" disabled={retryingSection === 'notifications'} onClick={() => { setRetryingSection('notifications'); refreshNotifications().finally(() => setRetryingSection('')) }}>{retryingSection === 'notifications' ? 'Retrying…' : 'Retry notifications'}</button>}</div>}
           {dataLoadError && ['teams', 'skills', 'projects'].includes(activePage) && <div className="data-load-warning" role="alert">{dataLoadError} <button className="button ghost" disabled={retryingSection === activePage} onClick={() => retryLoad(activePage)}>{retryingSection === activePage ? 'Retrying…' : 'Retry'}</button></div>}
-          {activePage === 'dashboard' && <Dashboard classes={classes} resources={filteredResources} teamPostCount={teamPostCount} helpServiceCount={helpServiceCount} onAddResource={() => { setResourceSaveError(''); setShowResourceModal(true) }} onAddClass={() => setShowClassModal(true)} onNavigate={go} userName={userName} currentUserId={user?.id} token={session?.access_token} resourcesError={resourcesError} classesError={classesError} summaryError={summaryError} onRetry={retryLoad} retryingSection={retryingSection} />}
+          {activePage === 'dashboard' && <Dashboard classes={classes} resources={filteredResources} teamPostCount={teamPostCount} helpServiceCount={helpServiceCount} onAddResource={() => { setResourceSaveError(''); setShowResourceModal(true) }} onAddClass={() => setShowClassModal(true)} onNavigate={go} userName={userName} currentUserId={user?.id} token={session?.access_token} resourcesError={resourcesError} classesError={classesError} summaryError={summaryError} onRetry={retryLoad} retryingSection={retryingSection} animateEntrance={dashIntroActive} />}
           {activePage === 'vault' && <Vault resources={filteredResources} search={vaultSearch} onSearch={(value) => { setVaultSearch(value); }} onAdd={() => { setResourceSaveError(''); setShowResourceModal(true) }} onDelete={deleteResource} onEdit={(item) => { setEditingResource(item); setResourceEditPaid(item.price != null) }} onUnpublish={unpublishResource} onToggleSave={toggleResourceSave} onReport={(id) => { setReportDialog(resources.find((item) => item.id === id) || null); setReportError('') }} onOpenFile={openResourceFile} onRate={(item) => { setRateError(''); setRateDialog(item) }} onViewDetail={(item) => setDetailResource(item)} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }} onNotice={setActionNotice} currentUserId={user?.id} token={session?.access_token} error={resourcesError} onRetry={() => retryLoad('resources')} retrying={retryingSection === 'resources'} />}
           {activePage === 'classes' && <Classes classes={classes} currentUserId={user?.id} onAdd={() => { setEditingClass(null); setShowClassModal(true) }} onEdit={(item) => { setEditingClass(item); setShowClassModal(true) }} onDelete={deleteClass} onPublish={(item) => { setPublishDialog(item); setPublishMode('CLASS'); setPublishPaid(false); setPublishError('') }} expandedClassId={expandedClassId} onToggleExpanded={(id) => setExpandedClassId((current) => current === id ? null : id)} onAddTopic={(classId) => setTopicDialog({ classId, topic: null })} onEditTopic={(classId, topic) => setTopicDialog({ classId, topic })} onDeleteTopic={deleteTopic} onMoveTopic={reorderTopic} onAddMaterial={(classId, topicId) => { setClassResourceError(''); setClassResourceFileName(''); setResourceKind('RESOURCE'); setResourceDialog({ classId, topicId }) }} onRemoveMaterial={removeClassResource} onOpenFile={openResourceFile} error={classesError} onRetry={() => retryLoad('classes')} retrying={retryingSection === 'classes'} />}
           {activePage === 'teams' && <TeamFinder posts={teamPosts} currentUserId={user?.id} onCreate={() => { setEditingTeam(null); setShowTeamModal(true) }} onEdit={(post) => { setEditingTeam(post); setShowTeamModal(true) }} onDelete={deleteTeam} onJoin={(teamId) => setTeamApplicationDialog(teamPosts.find((post) => post.id === teamId) || null)} onWithdraw={withdrawTeamRequest} onRepost={repostTeam} onManageRequests={openTeamRequests} onOpenConversation={openConversation} onOpenProfile={(profileId) => { setSelectedPublicProfileId(profileId); go('profile') }} myApplications={myApplications} myApplicationsLoading={myApplicationsLoading} onLoadMyApplications={loadMyApplications} showApplications={myApplicationsOpen} onToggleApplications={(show) => { setMyApplicationsOpen(show); if (show) loadMyApplications() }} error={dataLoadError && activePage === 'teams' ? dataLoadError : ''} onRetry={() => retryLoad('teams')} retrying={retryingSection === 'teams'} />}
@@ -2484,6 +2507,50 @@ function MessagesPage({ token, currentUserId, initialConversationId }) {
   return <section className="messages-page"><aside className="conversation-list"><div className="conversation-list-heading"><h1>Messages</h1><p>Academic and project conversations</p></div>{loading ? <p className="conversation-state">Loading conversations...</p> : conversations.length ? conversations.map((conversation) => <button key={conversation.id} className={`conversation-list-item ${selectedId === conversation.id ? 'active' : ''}`} onClick={() => setSelectedId(conversation.id)}><strong>{titleFor(conversation)}</strong><small>{conversation.messages[0]?.content || 'No messages yet'}</small>{conversation.unreadCount > 0 && <span className="conversation-unread">{conversation.unreadCount}</span>}</button>) : <p className="conversation-state">No conversations yet. Team and accepted help conversations appear here.</p>}</aside><div className="conversation-panel">{selectedId ? <><div className="conversation-header"><strong>{titleFor(conversations.find((item) => item.id === selectedId) || { contextType: null, members: [] })}</strong></div><div className="message-history">{messages.length ? messages.map((message) => <article className={`message-bubble ${message.senderId === currentUserId ? 'mine' : ''}`} key={message.id}><strong>{message.sender?.name || 'Student'}</strong><p>{message.content}</p><small>{new Date(message.createdAt).toLocaleString()}</small></article>) : !loading && <p className="conversation-state">No messages yet. Start the conversation.</p>}</div><form className="message-composer" onSubmit={sendMessage}><textarea value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={5000} placeholder="Write an academic or project message..." /><button className="button primary" type="submit" disabled={sending || !draft.trim()} aria-label="Send message"><Send size={16} /> Send</button></form></> : <div className="conversation-empty"><MessageSquare size={26} /><strong>Select a conversation</strong><p>Accepted team and help conversations will appear here.</p></div>}{error && <p className="conversation-error">{error}</p>}</div></section>
 }
 
+function CommunityContributionCard({ contribution }) {
+  const score = contribution && typeof contribution.score === 'number' ? contribution.score : null
+  const ratingLabel = contribution?.ratingLabel || (score === null ? 'Unavailable' : 'Member')
+  const metrics = [
+    { label: 'Resources shared', value: contribution?.resourcesShared },
+    { label: 'Helpful contributions', value: contribution?.helpfulContributions },
+    { label: 'Community assistance', value: contribution?.communityAssistance },
+    { label: 'Hackathons participated', value: contribution?.hackathonsParticipated },
+    { label: 'Projects contributed to', value: contribution?.projectsContributed },
+  ]
+
+  return (
+    <div className="community-contribution-card" aria-label="Community Contribution">
+      <div className="contribution-header">
+        <div className="contribution-title-wrap">
+          <div className="contribution-icon-badge" aria-hidden="true">
+            <Award size={18} />
+          </div>
+          <div>
+            <h3>Community Contribution</h3>
+            <p>
+              {ratingLabel}
+              {contribution?.averageRating ? ` · ${contribution.averageRating} ★ (${contribution.totalReviews})` : ''}
+            </p>
+          </div>
+        </div>
+        <div className="contribution-score-pill" title="Verified contribution score">
+          <strong>{score !== null ? score : '—'}</strong>
+          <span>{score !== null ? 'pts' : 'unavailable'}</span>
+        </div>
+      </div>
+
+      <div className="contribution-metrics-grid">
+        {metrics.map((m) => (
+          <div className="contribution-metric-item" key={m.label}>
+            <span>{m.label}</span>
+            <strong>{typeof m.value === 'number' ? m.value : 'Unavailable'}</strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function PublicProfile({ profileId, token, onBack }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(Boolean(profileId && token))
@@ -2503,7 +2570,7 @@ function PublicProfile({ profileId, token, onBack }) {
   if (error || !user) return <section className="placeholder-page"><h1>Profile unavailable</h1><p>{error || 'This profile is private.'}</p><button className="button ghost" onClick={onBack}>Back to dashboard</button></section>
 
   const identity = user.academicIdentity || {}
-  const profile = user.profile || {}
+  const profile = { ...identity, ...(user.profile || {}) }
   const skills = Array.isArray(user.skills) ? user.skills : []
 
   return (
@@ -2517,7 +2584,8 @@ function PublicProfile({ profileId, token, onBack }) {
         <button className="button ghost" onClick={onBack}>Back to dashboard</button>
       </div>
 
-      <div className="account-layout">
+      <CommunityContributionCard contribution={globalProfile?.communityContribution} />
+      <div className="account-layout" style={{ marginTop: "18px" }}>
         <div className="account-panel profile-panel">
           <div className="panel-heading">
             <div className="profile-avatar">{(user.name || 'ST').slice(0, 2).toUpperCase()}</div>
@@ -2566,6 +2634,8 @@ function PublicProfile({ profileId, token, onBack }) {
             </div>
           )}
 
+          <CommunityContributionCard contribution={user.communityContribution} />
+
           <div className="profile-links" style={{ marginTop: '16px' }}>
             {identity.github && <a href={identity.github} target="_blank" rel="noreferrer">GitHub</a>}
             {identity.linkedin && <a href={identity.linkedin} target="_blank" rel="noreferrer">LinkedIn</a>}
@@ -2577,7 +2647,7 @@ function PublicProfile({ profileId, token, onBack }) {
   )
 }
 
-function Dashboard({ classes, resources, teamPostCount, helpServiceCount, onAddResource, onAddClass, onNavigate, userName, currentUserId, token, resourcesError, classesError, summaryError, onRetry, retryingSection }) {
+function Dashboard({ classes, resources, teamPostCount, helpServiceCount, onAddResource, onAddClass, onNavigate, userName, currentUserId, token, resourcesError, classesError, summaryError, onRetry, retryingSection, animateEntrance = false }) {
   const [now, setNow] = useState(null)
   const myResourceCount = resources.filter((item) => item.creatorId === currentUserId || item.creator?.id === currentUserId).length
   const savedCount = resources.filter((item) => item.savedByUser).length
@@ -2590,15 +2660,21 @@ function Dashboard({ classes, resources, teamPostCount, helpServiceCount, onAddR
   }, [])
 
   return <>
-    <section className="welcome-banner"><div><p className="eyebrow">{now ? now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase() : 'YOUR STUDYOS WORKSPACE'}</p><h1>{now ? (now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening') : 'Welcome'} <span className="wave">✦</span>, {userName}!</h1><p className="welcome-copy">Keep learning, building and collaborating.<br />Your academic journey, now better organized with StudyOS.</p><div className="hero-actions"><button className="button primary" onClick={onAddResource}><Plus size={16} /> Add Resource</button><button className="button ghost" onClick={() => onNavigate('vault')}><Library size={15} /> Explore Vault <ArrowRight size={14} /></button></div></div><div className="hero-art"><div className="sun-orb"></div><div className="book-stack"><span></span><span></span><span></span></div><GraduationCap size={63} /></div></section>
+    <section className={`welcome-banner ${animateEntrance ? "dash-anim-top" : ""}`}><div><p className="eyebrow">{now ? now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase() : 'YOUR STUDYOS WORKSPACE'}</p><h1>{now ? (now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening') : 'Welcome'} <span className="wave">✦</span>, {userName}!</h1><p className="welcome-copy">Keep learning, building and collaborating.<br />Your academic journey, now better organized with StudyOS.</p><div className="hero-actions"><button className="button primary" onClick={onAddResource}><Plus size={16} /> Add Resource</button><button className="button ghost" onClick={() => onNavigate('vault')}><Library size={15} /> Explore Vault <ArrowRight size={14} /></button></div></div><div className="hero-art"><div className="sun-orb"></div><div className="book-stack"><span></span><span></span><span></span></div><GraduationCap size={63} /></div></section>
     
     {summaryError ? (
       <div className="data-load-warning" style={{marginBottom: 16}} role="alert">{summaryError} <button className="button ghost" disabled={retryingSection === 'summary'} onClick={() => onRetry('summary')}>{retryingSection === 'summary' ? 'Retrying…' : 'Retry'}</button></div>
     ) : (
-      <div className="stat-grid"><Stat label="My Classes" value={`${classCount} / 10`} icon={BookOpen} tone="green" /><Stat label="Saved Resources" value={String(savedCount)} icon={Bookmark} tone="blue" /><Stat label="My Contributions" value={String(myResourceCount)} icon={Star} tone="yellow" /><Stat label="Open Teams" value={String(teamPostCount)} icon={UsersRound} tone="pink" /><Stat label="Help Services" value={String(helpServiceCount)} icon={MessageSquare} tone="mint" /></div>
+      <div className="stat-grid">
+        <div className={animateEntrance ? 'dash-anim-stagger-0' : ''}><Stat label="My Classes" value={`${classCount} / 10`} icon={BookOpen} tone="green" /></div>
+        <div className={animateEntrance ? 'dash-anim-stagger-1' : ''}><Stat label="Saved Resources" value={String(savedCount)} icon={Bookmark} tone="blue" /></div>
+        <div className={animateEntrance ? 'dash-anim-stagger-2' : ''}><Stat label="My Contributions" value={String(myResourceCount)} icon={Star} tone="yellow" /></div>
+        <div className={animateEntrance ? 'dash-anim-stagger-3' : ''}><Stat label="Open Teams" value={String(teamPostCount)} icon={UsersRound} tone="pink" /></div>
+        <div className={animateEntrance ? 'dash-anim-stagger-4' : ''}><Stat label="Help Services" value={String(helpServiceCount)} icon={MessageSquare} tone="mint" /></div>
+      </div>
     )}
 
-    <section className="section-card classes-section">
+    <section className={`section-card classes-section ${animateEntrance ? "dash-anim-up" : ""}`}>
       <SectionHeader title="My Virtual Study Classes" action="View all" onClick={() => onNavigate('classes')} />
       {classesError ? (
         <div className="data-load-warning" role="alert">{classesError} <button className="button ghost" disabled={retryingSection === 'classes'} onClick={() => onRetry('classes')}>{retryingSection === 'classes' ? 'Retrying…' : 'Retry'}</button></div>
@@ -2608,7 +2684,7 @@ function Dashboard({ classes, resources, teamPostCount, helpServiceCount, onAddR
     </section>
     
     <div className="lower-grid">
-      <section className="section-card resource-card">
+      <section className={`section-card resource-card ${animateEntrance ? "dash-anim-left" : ""}`}>
         <SectionHeader title="Recent Resources" action="View all" onClick={() => onNavigate('vault')} />
         {resourcesError ? (
           <div className="data-load-warning" role="alert">{resourcesError} <button className="button ghost" disabled={retryingSection === 'resources'} onClick={() => onRetry('resources')}>{retryingSection === 'resources' ? 'Retrying…' : 'Retry'}</button></div>
@@ -2616,7 +2692,7 @@ function Dashboard({ classes, resources, teamPostCount, helpServiceCount, onAddR
           resources.length ? <ResourceList resources={resources.slice(0, 5)} onNavigate={() => onNavigate('vault')} /> : <div className="dashboard-empty"><strong>No recent resources</strong><span>Upload notes or browse what your classmates have shared.</span><button className="button ghost" onClick={() => onNavigate('vault')}>Explore Vault</button></div>
         )}
       </section>
-      <section className="section-card activity-card">
+      <section className={`section-card activity-card ${animateEntrance ? "dash-anim-right" : ""}`}>
         <SectionHeader title="Community Activity" action="View all" onClick={() => onNavigate('vault')} />
         {resourcesError ? (
           <div className="activity-list">
