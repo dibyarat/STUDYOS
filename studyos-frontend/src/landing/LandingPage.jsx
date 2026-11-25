@@ -42,6 +42,7 @@ export default function LandingPage({ initialShowLogin = false }) {
   const [error, setError] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     try {
@@ -307,220 +308,358 @@ export default function LandingPage({ initialShowLogin = false }) {
   return (
     <div className="studyos-landing">
       <BrandBackdrop />
-      {/* Header / Navbar */}
-      <header className="landing-header">
-        <div className="landing-nav-container">
-          <div className="landing-brand">
-            <img src={studyosMark} alt="StudyOS Mark" className="landing-brand-logo" />
-            <strong>Study<span>OS</span></strong>
-            <span className="landing-badge">CAMPUS</span>
+
+      <div className="page-wrapper">
+        {/* 1. STICKY FLOATING GLASS NAVBAR */}
+        <header className="site-navbar glass">
+          <div className="navbar-inner">
+            <a href="#hero" className="brand-link" aria-label="StudyOS Home">
+              <div className="brand-icon-wrapper">
+                <img src={studyosMark} alt="StudyOS Icon" className="brand-icon-img" />
+              </div>
+              <span className="brand-wordmark">
+                <span className="wordmark-blue">Study</span><span className="wordmark-accent">OS</span>
+              </span>
+            </a>
+
+            <nav className="nav-links" aria-label="Primary navigation">
+              <a href="#hero" className="nav-item-link">Home</a>
+              <a href="#features" className="nav-item-link">Features</a>
+              <a href="#companion" className="nav-item-link">Ecosystem</a>
+              <a href="#about" className="nav-item-link">About</a>
+            </nav>
+
+            <div className="nav-actions">
+              <button type="button" className="nav-signin-link" onClick={() => openLogin('signin')}>
+                Sign In
+              </button>
+              <button type="button" className="btn-gradient nav-cta-btn" onClick={() => openLogin('signup')}>
+                <span>Get Started</span>
+                <ArrowRight size={15} />
+              </button>
+
+              <button
+                type="button"
+                className="mobile-toggle"
+                aria-label="Toggle navigation menu"
+                aria-expanded={mobileMenuOpen}
+                onClick={() => setMobileMenuOpen((prev) => !prev)}
+              >
+                <span className="mobile-toggle-bar" />
+                <span className="mobile-toggle-bar" />
+                <span className="mobile-toggle-bar" />
+              </button>
+            </div>
           </div>
+        </header>
 
-          <nav className="landing-nav-links">
-            <a href="#features">Features</a>
-            <a href="#companion">CampAssist Companion</a>
-            <a href="#about">About</a>
-          </nav>
-
-          <div className="landing-nav-actions">
-            <button type="button" className="landing-btn-login" onClick={() => openLogin('signin')}>
-              Sign In
-            </button>
-            <button type="button" className="landing-btn-primary" onClick={() => openLogin('signup')}>
-              Get Started <ArrowRight size={15} />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Hero Section */}
-      <section className="landing-hero">
-        <div className="landing-hero-badge">
-          <img src={studyosMark} alt="StudyOS" style={{ width: 16, height: 16, objectFit: 'contain' }} />
-          <span>The Academic Operating System</span>
-        </div>
-
-        <h1>
-          Your Semester Journey,<br />
-          <span className="text-gradient">Fully Synchronized.</span>
-        </h1>
-
-        <p className="landing-hero-desc">
-          StudyOS is the unified academic hub for university students. Organize virtual study classes, share vaulted notes, recruit project teams, and document lab records in one modern workspace.
-        </p>
-
-        <div className="landing-hero-cta">
-          <button type="button" className="landing-btn-primary" onClick={() => openLogin('signup')}>
-            Launch Workspace <ArrowRight size={16} />
-          </button>
-          <button type="button" className="landing-btn-login-hero" onClick={() => openLogin('signin')}>
+        {/* Mobile Navigation Drawer */}
+        <div className={`mobile-menu-drawer glass ${mobileMenuOpen ? 'is-open' : ''}`} aria-label="Mobile Navigation">
+          <a href="#hero" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Home</a>
+          <a href="#features" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Features</a>
+          <a href="#companion" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Ecosystem</a>
+          <a href="#about" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>About</a>
+          <button
+            type="button"
+            className="btn-glass btn-full"
+            onClick={() => { setMobileMenuOpen(false); openLogin('signin') }}
+          >
             Sign In
           </button>
-          <a href="#features" className="landing-btn-secondary">
-            Explore Features
-          </a>
-          <a
-            href={import.meta.env.VITE_CAMPUSMATE_URL || 'https://campassist.me'}
-            target="_blank"
-            rel="noreferrer"
-            className="companion-btn"
+          <button
+            type="button"
+            className="btn-gradient btn-full"
+            onClick={() => { setMobileMenuOpen(false); openLogin('signup') }}
           >
-            <img src={campassistIcon} alt="CampAssist" style={{ width: 18, height: 18, objectFit: 'contain' }} />
-            <span>Open CampAssist</span>
-            <ExternalLink size={13} />
-          </a>
+            Get Started <ArrowRight size={15} />
+          </button>
         </div>
 
-        {/* Hero Interactive Showcase Mockup */}
-        <div className="hero-mockup-wrap">
-          <div className="hero-mockup-inner">
-            <div className="mockup-sidebar">
-              <div className="mockup-sidebar-brand">
-                <img src={studyosMark} alt="" style={{ width: 20, height: 20 }} />
-                <span>StudyOS</span>
-              </div>
-              <div className="mockup-sidebar-item active">
-                <BookOpen size={14} /> Virtual Classes
-              </div>
-              <div className="mockup-sidebar-item">
-                <Library size={14} /> Study Notes Vault
-              </div>
-              <div className="mockup-sidebar-item">
-                <FolderKanban size={14} /> Lab Repository
-              </div>
-              <div className="mockup-sidebar-item">
-                <UsersRound size={14} /> Team Finder
-              </div>
-            </div>
-
-            <div className="mockup-main">
-              <div className="mockup-top-search">
-                <Search size={15} />
-                <span>Search notes, classes, projects, people, skills... (Ctrl+K)</span>
-              </div>
-
-              <div className="mockup-cards-grid">
-                <div className="mockup-stat-card">
-                  <span>Virtual Classes</span>
-                  <strong>Active Semester</strong>
-                </div>
-                <div className="mockup-stat-card">
-                  <span>Vault Resources</span>
-                  <strong>Peer Reviewed</strong>
-                </div>
-                <div className="mockup-stat-card">
-                  <span>Team Finder</span>
-                  <strong>Hackathons Open</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Grid Section */}
-      <section id="features" className="landing-features-section">
-        <div className="landing-features-container">
-          <div className="section-header-center">
-            <span className="section-tag">Powerful Features</span>
-            <h2>Everything You Need to Excel</h2>
-            <p>
-              Designed specifically for student workflows. Replace messy group chats and lost Google Drive links with a single, dedicated academic workspace.
-            </p>
-          </div>
-
-          <div className="features-grid">
-            {features.map((feature, idx) => {
-              const Icon = feature.icon
-              return (
-                <div className="feature-card" key={idx}>
-                  <div className={`feature-icon-bubble ${feature.tone}`}>
-                    <Icon size={24} />
+        <main>
+          {/* 2. TWO-COLUMN HERO SECTION */}
+          <section className="hero-section" id="hero">
+            <div className="container">
+              <div className="hero-grid">
+                {/* Left Column */}
+                <div className="hero-content">
+                  <div className="hero-pill-badge glass-pill">
+                    <span className="sparkle-icon" aria-hidden="true">✦</span>
+                    <span>THE ACADEMIC OPERATING SYSTEM</span>
                   </div>
-                  <h3>{feature.title}</h3>
-                  <p>{feature.desc}</p>
-                  <span className="feature-highlight-tag">
-                    <CheckCircle2 size={12} color="#10b981" />
-                    {feature.tag}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </section>
 
-      {/* CampAssist Companion Integration Section */}
-      <section id="companion" className="landing-companion-section">
-        <div className="companion-container">
-          <div className="companion-card">
-            <div className="companion-info">
-              <span className="companion-badge-pill">
-                Seamless Ecosystem
-              </span>
-              <h3>Built to Work Together with CampAssist</h3>
-              <p>
-                StudyOS is the official academic companion to CampAssist. While CampAssist takes care of your daily attendance, timetables, and campus facilities, StudyOS powers your classes, study materials, and peer collaboration.
-              </p>
-              <a
-                href={import.meta.env.VITE_CAMPUSMATE_URL || 'https://campassist.me'}
-                target="_blank"
-                rel="noreferrer"
-                className="companion-btn"
-              >
-                <img src={campassistIcon} alt="CampAssist" style={{ width: 20, height: 20, objectFit: 'contain' }} />
-                <span>Visit CampAssist Digital Campus</span>
-                <ExternalLink size={14} />
-              </a>
+                  <h1 className="hero-headline">
+                    Your semester, <span className="gradient-text">synchronized.</span>
+                  </h1>
+
+                  <p className="hero-subline">
+                    StudyOS is the unified academic hub for university students. Organize virtual study classes, share vaulted notes, recruit project teams, and document lab records in one modern workspace.
+                  </p>
+
+                  <div className="hero-cta-group">
+                    <button type="button" className="btn-gradient" onClick={() => openLogin('signup')}>
+                      <span>Launch Workspace</span>
+                      <ArrowRight size={16} />
+                    </button>
+                    <button type="button" className="btn-glass" onClick={() => openLogin('signin')}>
+                      <span>Sign In</span>
+                    </button>
+                    <a
+                      href={import.meta.env.VITE_CAMPUSMATE_URL || 'https://campassist.me'}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn-glass"
+                    >
+                      <img src={campassistIcon} alt="CampAssist" style={{ width: 18, height: 18, objectFit: 'contain' }} />
+                      <span>Open CampAssist</span>
+                      <ExternalLink size={13} />
+                    </a>
+                  </div>
+
+                  <div className="hero-trust-line">
+                    <CheckCircle2 size={18} className="trust-check-icon" aria-hidden="true" />
+                    <span>Built by students, for students. Part of the HayonCampus ecosystem.</span>
+                  </div>
+                </div>
+
+                {/* Right Column: Staggered Floating Product Mockup Cards */}
+                <div className="hero-mockup-stage" aria-label="StudyOS workspace preview">
+                  <div className="floating-mockup-card card-top glass">
+                    <div className="mockup-header">
+                      <div className="mockup-brand">
+                        <img src={studyosMark} alt="StudyOS" className="mockup-brand-icon" />
+                        <span className="mockup-brand-name">StudyOS Vault</span>
+                      </div>
+                      <span className="mockup-status-chip">
+                        <span className="chip-dot" />
+                        <span>Live Workspace</span>
+                      </span>
+                    </div>
+
+                    <div className="mockup-body-item">
+                      <div className="mockup-item-title">Distributed Systems Vault.pdf</div>
+                      <div className="mockup-item-meta">Unit 3: Consensus Protocols • 4.9 ★ (18 reviews)</div>
+                    </div>
+
+                    <div className="mockup-body-item" style={{ marginBottom: 0 }}>
+                      <div className="mockup-item-meta">Virtual Study Classes</div>
+                      <div className="mockup-meter-row">
+                        <span className="mockup-meter-stat">88%</span>
+                        <span className="mockup-meter-pill">12/14 Modules Completed</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="floating-mockup-card card-bottom glass">
+                    <div className="mockup-header">
+                      <div className="mockup-brand">
+                        <img src={studyosMark} alt="StudyOS" className="mockup-brand-icon" />
+                        <span className="mockup-brand-name">Teams & Lab Records</span>
+                      </div>
+                      <span className="mockup-status-chip">
+                        <span className="chip-dot" />
+                        <span>Cloud Sync Active</span>
+                      </span>
+                    </div>
+
+                    <div className="mockup-body-item">
+                      <div className="mockup-item-title">Hackathon Squad (3/4 Filled)</div>
+                      <div className="mockup-team-row">
+                        <div className="mockup-avatar-group">
+                          <div className="avatar-circle avatar-1">RN</div>
+                          <div className="avatar-circle avatar-2">SP</div>
+                          <div className="avatar-circle avatar-3">AD</div>
+                        </div>
+                        <span className="mockup-meter-pill pill-blue">+1 Need React/Node</span>
+                      </div>
+                    </div>
+
+                    <div className="mockup-body-item" style={{ marginBottom: 0 }}>
+                      <div className="mockup-item-title">DBMS Exp 07: B+ Tree Indexing</div>
+                      <div className="mockup-item-meta">Lab Repository • Code & Outputs Attached</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* 3. FEATURES SECTION */}
+          <section id="features" className="features-section">
+            <div className="container">
+              <div className="section-header">
+                <div className="section-badge glass-pill">FEATURES</div>
+                <h2 className="section-title">Everything you need to excel.</h2>
+                <p className="section-subtitle">
+                  Designed specifically for student workflows. Replace messy group chats and lost Google Drive links with a single, dedicated academic workspace.
+                </p>
+              </div>
+
+              <div className="features-grid">
+                {features.map((feature, idx) => {
+                  const Icon = feature.icon
+                  return (
+                    <div className="feature-card glass" key={idx}>
+                      <div className={`feature-icon-bubble ${feature.tone}`}>
+                        <Icon size={24} />
+                      </div>
+                      <h3>{feature.title}</h3>
+                      <p>{feature.desc}</p>
+                      <span className="feature-highlight-tag glass-pill">
+                        <CheckCircle2 size={12} color="#10b981" />
+                        {feature.tag}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </section>
+
+          {/* 4. COMPANION ECOSYSTEM SECTION */}
+          <section id="companion" className="companion-section">
+            <div className="container">
+              <div className="companion-card glass">
+                <div className="platform-card-glow glow-campassist" />
+                <div className="companion-info">
+                  <div className="section-badge glass-pill">SEAMLESS ECOSYSTEM</div>
+                  <h3>Built to work together with CampAssist.</h3>
+                  <p>
+                    StudyOS is the official academic companion to CampAssist. While CampAssist takes care of your daily attendance, timetables, and campus facilities, StudyOS powers your classes, study materials, and peer collaboration.
+                  </p>
+                  <a
+                    href={import.meta.env.VITE_CAMPUSMATE_URL || 'https://campassist.me'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-gradient"
+                  >
+                    <img src={campassistIcon} alt="CampAssist" style={{ width: 20, height: 20, objectFit: 'contain' }} />
+                    <span>Visit CampAssist Digital Campus</span>
+                    <ExternalLink size={14} />
+                  </a>
+                </div>
+
+                <div className="companion-emblem-wrap">
+                  <div className="about-emblem-card glass">
+                    <img src={campassistIcon} alt="CampAssist Logo" className="companion-emblem-img" />
+                    <span className="brand-wordmark emblem-wordmark">
+                      <span className="wordmark-blue">Camp</span><span className="wordmark-accent">Assist</span>
+                    </span>
+                    <span className="about-tagline-text">Daily Schedule & Attendance Companion</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* 5. BRAND STATEMENT BANNER */}
+          <section className="statement-section">
+            <div className="container">
+              <div className="statement-panel glass">
+                <h2 className="statement-headline">
+                  Studying shouldn&apos;t feel fragmented. <br />
+                  <span className="gradient-text">We&apos;re uniting every facet of academic collaboration.</span>
+                </h2>
+                <p className="statement-subtext">
+                  Join your classmates on StudyOS today. Sign in with your student account to get instant access to notes, classes, and projects.
+                </p>
+                <div className="hero-cta-group" style={{ justifyContent: 'center', marginBottom: 0 }}>
+                  <button type="button" className="btn-gradient" onClick={() => openLogin('signup')}>
+                    <span>Get Started Now</span>
+                    <ArrowRight size={16} />
+                  </button>
+                  <button type="button" className="btn-glass" onClick={() => openLogin('signin')}>
+                    <span>Sign In</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* 6. ABOUT SECTION */}
+          <section className="about-section" id="about">
+            <div className="container">
+              <div className="about-grid">
+                <div className="about-copy-wrap">
+                  <div className="section-badge glass-pill">ABOUT STUDYOS</div>
+                  <h2 className="about-title">
+                    Purpose-built for the rhythm of modern university life.
+                  </h2>
+                  <p className="about-paragraph">
+                    University life moves fast. Students traditionally juggle fragmented group chats for classroom notes, scattered Drive links for lab manuals, and buried emails when recruiting teammates for hackathons.
+                  </p>
+                  <p className="about-paragraph">
+                    StudyOS brings every academic resource, virtual study class, lab record, and project squad into one synchronized workspace — seamlessly connected to CampAssist under the HayonCampus umbrella.
+                  </p>
+                  <div className="about-highlight-box glass">
+                    <span className="sparkle-icon" aria-hidden="true">✦</span>
+                    <span>One shared student ecosystem. Zero fragmented noise.</span>
+                  </div>
+                </div>
+
+                <div className="about-emblem-stage">
+                  <div className="about-emblem-card glass">
+                    <img src={studyosMark} alt="StudyOS Icon" className="about-emblem-img" />
+                    <span className="brand-wordmark emblem-wordmark">
+                      <span className="wordmark-blue">Study</span><span className="wordmark-accent">OS</span>
+                    </span>
+                    <span className="about-tagline-text">Your academic workspace, fully synchronized.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+
+        {/* 7. FOOTER */}
+        <footer className="site-footer">
+          <div className="container">
+            <div className="footer-grid">
+              <div className="footer-brand-col">
+                <a href="#hero" className="brand-link" aria-label="StudyOS Home">
+                  <div className="brand-icon-wrapper">
+                    <img src={studyosMark} alt="StudyOS Icon" className="brand-icon-img" />
+                  </div>
+                  <span className="brand-wordmark">
+                    <span className="wordmark-blue">Study</span><span className="wordmark-accent">OS</span>
+                  </span>
+                </a>
+                <p className="footer-tagline">
+                  Your unified academic operating system. Part of the HayonCampus student ecosystem.
+                </p>
+              </div>
+
+              <div>
+                <h4 className="footer-links-title">Workspace</h4>
+                <ul className="footer-links-list">
+                  <li><a href="#features" className="footer-link-item">Virtual Study Classes</a></li>
+                  <li><a href="#features" className="footer-link-item">Study Notes Vault</a></li>
+                  <li><a href="#features" className="footer-link-item">Projects & Lab Repository</a></li>
+                  <li><a href="#features" className="footer-link-item">Team Finder</a></li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="footer-links-title">Ecosystem</h4>
+                <ul className="footer-links-list">
+                  <li><a href="https://hayoncampus.in" target="_blank" rel="noreferrer" className="footer-link-item">HayonCampus Parent</a></li>
+                  <li><a href={import.meta.env.VITE_CAMPUSMATE_URL || 'https://campassist.me'} target="_blank" rel="noreferrer" className="footer-link-item">CampAssist Companion</a></li>
+                  <li><a href="#about" className="footer-link-item">About StudyOS</a></li>
+                  <li><button type="button" onClick={() => openLogin('signin')} className="footer-link-item">Sign In</button></li>
+                </ul>
+              </div>
             </div>
 
-            <div style={{ textAlign: 'center', position: 'relative', zIndex: 10 }}>
-              <div style={{ display: 'inline-flex', padding: 24, background: 'rgba(255, 255, 255, 0.95)', borderRadius: 28, border: '1px solid #ffffff', boxShadow: '0 16px 40px rgba(0,0,0,0.2)' }}>
-                <img src={campassistIcon} alt="CampAssist Logo" style={{ width: 88, height: 88, objectFit: 'contain' }} />
+            <div className="footer-bottom-bar">
+              <div>© {new Date().getFullYear()} StudyOS • HayonCampus. All rights reserved.</div>
+              <div className="footer-extra-links">
+                <span>Designed for higher education</span>
+                <span>•</span>
+                <span>CampAssist & StudyOS</span>
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Bottom CTA Banner */}
-      <section className="landing-bottom-cta">
-        <div className="bottom-cta-inner">
-          <h2>Ready to Elevate Your College Life?</h2>
-          <p>
-            Join your classmates on StudyOS today. Sign in with your existing student account to get instant access to notes, classes, and projects.
-          </p>
-          <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button type="button" className="landing-btn-primary" onClick={() => openLogin('signup')}>
-              Get Started Now <ArrowRight size={16} />
-            </button>
-            <button type="button" className="landing-btn-secondary" onClick={() => openLogin('signin')}>
-              Sign In
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer id="about" className="landing-footer">
-        <div className="landing-footer-container">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <img src={studyosMark} alt="StudyOS" style={{ width: 22, height: 22, objectFit: 'contain' }} />
-            <strong className="font-wordmark" style={{ color: 'var(--color-primary)', fontSize: 18 }}>Study<span style={{ color: 'var(--color-accent)' }}>OS</span></strong>
-            <span style={{ color: 'var(--color-muted)' }}>&copy; {new Date().getFullYear()} StudyOS. Part of the Hayoncampus student ecosystem.</span>
-          </div>
-          <div>
-            <a
-              href={import.meta.env.VITE_CAMPUSMATE_URL || 'https://campassist.me'}
-              style={{ color: 'var(--color-muted)', textDecoration: 'none', fontWeight: 600 }}
-              target="_blank"
-              rel="noreferrer"
-            >
-              CampAssist Companion
-            </a>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
 
       {/* Authentication Modal rendered into document.body to guarantee viewport positioning */}
       {showLoginModal && typeof document !== 'undefined' && createPortal(
