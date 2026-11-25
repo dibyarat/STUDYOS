@@ -1558,13 +1558,22 @@ select option {
   color: #2563EB;
 }
 
+:root[data-theme="dark"] .contribution-icon-badge {
+  background: rgba(59, 130, 246, 0.18);
+  color: #60A5FA;
+}
+
+:root[data-theme="dark"] .contribution-metric-item strong {
+  color: #60A5FA;
+}
+
 @media (prefers-color-scheme: dark) {
-  .contribution-icon-badge {
+  :root:not([data-theme="light"]) .contribution-icon-badge {
     background: rgba(59, 130, 246, 0.18);
     color: #60A5FA;
   }
 
-  .contribution-metric-item strong {
+  :root:not([data-theme="light"]) .contribution-metric-item strong {
     color: #60A5FA;
   }
 }
