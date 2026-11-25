@@ -41,6 +41,8 @@ import {
   LogOut,
   LockKeyhole,
   Mail,
+  Sun,
+  Moon,
 } from 'lucide-react'
 import './StudyOS.css'
 import './StudyOS-layout.css'
@@ -329,6 +331,15 @@ function App() {
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('studyos-theme')
+    if (saved === 'light' || saved === 'dark') return saved
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  })
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('studyos-theme', theme)
+  }, [theme])
   const initialDataUser = useRef(null)
   const skillsDataUser = useRef(null)
   const teamDataUser = useRef(null)
@@ -2087,6 +2098,15 @@ function App() {
             {search.trim() && <SearchResults id="search-results" results={searchResults?.results} loading={searchLoading} error={searchError} query={search} onOpenGroup={openSearchGroup} />}
           </div>
           <div className="top-actions">
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Toggle day/night theme"
+              title={theme === 'dark' ? 'Switch to Day mode' : 'Switch to Night mode'}
+              onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+            >
+              {theme === 'dark' ? <Sun size={19} /> : <Moon size={19} />}
+            </button>
             <div className="notification-control" ref={notificationControlRef}>
               <button className="icon-button" aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`} aria-expanded={notificationsOpen} aria-haspopup="true" onClick={() => setNotificationsOpen((open) => !open)}><Bell size={19} />{unreadCount > 0 && <b className="notification-count">{unreadCount > 99 ? '99+' : unreadCount}</b>}</button>
               {notificationsOpen && <div className="notification-popover" role="region" aria-label="Notifications">
