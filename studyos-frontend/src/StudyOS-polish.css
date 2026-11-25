@@ -1592,3 +1592,13 @@ select option {
   background: var(--glass-surface, var(--color-card)) !important;
   border-color: var(--color-border, rgba(148, 163, 184, 0.25)) !important;
 }
+
+/* Skills & Help top stat cards - theme-aware */
+.market-stats > div {
+  background: var(--glass-surface, var(--color-card)) !important;
+  border-color: var(--color-border, rgba(148, 163, 184, 0.25)) !important;
+}
+
+.market-stats > div span {
+  color: var(--color-muted, #94a3b8) !important;
+}
