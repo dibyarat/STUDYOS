@@ -1,4 +1,6 @@
-:root {
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
   /* Semantic Tokens (HayonCampus Design System) */
   --color-bg: #FAFAFC;
   --color-text: #17181C;
