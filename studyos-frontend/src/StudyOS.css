@@ -214,14 +214,14 @@ body {
 }
 
 .sidebar .nav-item:hover {
-  background: rgba(113, 64, 216, 0.08);
+  background: rgba(37, 99, 235, 0.08);
   color: var(--color-text);
 }
 
 .sidebar .nav-item.active {
   color: #ffffff !important;
-  background: var(--gradient-brand) !important;
-  box-shadow: 0 4px 16px rgba(113, 64, 216, 0.35) !important;
+  background: #2563EB !important;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35) !important;
   font-weight: 600;
 }
 

@@ -1568,3 +1568,27 @@ select option {
     color: #60A5FA;
   }
 }
+
+/* Skills & Help form inputs & cards - theme-aware */
+.profile-skill-form input,
+.profile-skill-form textarea,
+.profile-skill-form select,
+.skill-profile-card input,
+.skill-profile-card textarea,
+.skill-profile-card select {
+  background: var(--glass-surface, var(--color-card)) !important;
+  color: var(--color-text) !important;
+  border-color: var(--color-border, rgba(148, 163, 184, 0.25)) !important;
+}
+
+.profile-skill-form input::placeholder,
+.profile-skill-form textarea::placeholder,
+.skill-profile-card input::placeholder,
+.skill-profile-card textarea::placeholder {
+  color: var(--color-muted, #94a3b8) !important;
+}
+
+.skill-profile-card {
+  background: var(--glass-surface, var(--color-card)) !important;
+  border-color: var(--color-border, rgba(148, 163, 184, 0.25)) !important;
+}
